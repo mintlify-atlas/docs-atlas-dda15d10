@@ -7,14 +7,14 @@ ReplaySorcery provides flexible configuration for where and how your replay vide
 
 ## Output File Path
 
-<ParamField path="outputFile" type="string" default="~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4">
+<ParamField path="outputFile" type="string" default="~/Videos/ReplaySorcery_%F_%H-%M-%S.mp4">
   Where to save the output video file. This path supports:
   - Tilde expansion (`~` for home directory)
   - strftime format specifiers for timestamps
   
-  **Default:** `~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4`
+  **Default:** `~/Videos/ReplaySorcery_%F_%H-%M-%S.mp4`
   
-  This creates files like: `~/Videos/ReplaySorcery/2026-03-05_14-30-25.mp4`
+  This creates files like: `~/Videos/ReplaySorcery_2026-03-05_14-30-25.mp4`
 </ParamField>
 
 ### Directory Structure
@@ -22,10 +22,10 @@ ReplaySorcery provides flexible configuration for where and how your replay vide
 The default configuration saves videos to:
 
 ```
-~/Videos/ReplaySorcery/
-├── 2026-03-05_14-30-25.mp4
-├── 2026-03-05_14-35-10.mp4
-└── 2026-03-05_15-02-43.mp4
+~/Videos/
+├── ReplaySorcery_2026-03-05_14-30-25.mp4
+├── ReplaySorcery_2026-03-05_14-35-10.mp4
+└── ReplaySorcery_2026-03-05_15-02-43.mp4
 ```
 
 <Note>
@@ -73,8 +73,8 @@ The output path uses `strftime` format specifiers to generate unique filenames b
 
 <CodeGroup>
   ```conf Default Format
-  outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
-  # Result: ~/Videos/ReplaySorcery/2026-03-05_14-30-25.mp4
+  outputFile = ~/Videos/ReplaySorcery_%F_%H-%M-%S.mp4
+  # Result: ~/Videos/ReplaySorcery_2026-03-05_14-30-25.mp4
   ```
 
   ```conf Date Folders

@@ -365,13 +365,13 @@ Once the service is running:
 3. Check the output directory:
 
 ```bash
-ls -lh ~/Videos/ReplaySorcery/
+ls -lh ~/Videos/ReplaySorcery_*.mp4
 ```
 
 4. Play the video to verify quality:
 
 ```bash
-mpv ~/Videos/ReplaySorcery/$(ls -t ~/Videos/ReplaySorcery/ | head -1)
+mpv $(ls -t ~/Videos/ReplaySorcery_*.mp4 | head -1)
 ```
 
 ## Reporting Bugs

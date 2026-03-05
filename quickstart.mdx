@@ -68,7 +68,7 @@ This guide will walk you through setting up ReplaySorcery, enabling the service,
     
     When pressed, ReplaySorcery will:
     1. Write the last 30 seconds from the buffer to a file
-    2. Save it to `~/Videos/ReplaySorcery/` by default
+    2. Save it to `~/Videos/` by default with filename `ReplaySorcery_YYYY-MM-DD_HH-MM-SS.mp4`
     3. Show a desktop notification confirming the save
     
     <Info>
@@ -80,21 +80,21 @@ This guide will walk you through setting up ReplaySorcery, enabling the service,
     Navigate to the output directory to find your replay:
     
     ```bash
-    ls -lh ~/Videos/ReplaySorcery/
+    ls -lh ~/Videos/ReplaySorcery_*.mp4
     ```
     
-    Files are named with a timestamp: `YYYY-MM-DD_HH-MM-SS.mp4`
+    Files are named with a timestamp: `ReplaySorcery_YYYY-MM-DD_HH-MM-SS.mp4`
     
     Play the video with your favorite player:
     
     ```bash
-    mpv ~/Videos/ReplaySorcery/*.mp4
+    mpv ~/Videos/ReplaySorcery_*.mp4
     ```
     
     or
     
     ```bash
-    vlc ~/Videos/ReplaySorcery/*.mp4
+    vlc ~/Videos/ReplaySorcery_*.mp4
     ```
   </Step>
 </Steps>
@@ -199,7 +199,7 @@ recordSeconds = 60
 
 #### Output Location
 
-Customize where replays are saved (default: `~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4`):
+Customize where replays are saved (default: `~/Videos/ReplaySorcery_%F_%H-%M-%S.mp4`):
 
 ```ini
 # Save to a different directory with custom naming
@@ -420,7 +420,7 @@ For better performance, enable hardware-accelerated screen capture via KMS.
 
 2. Ensure the output directory exists:
    ```bash
-   mkdir -p ~/Videos/ReplaySorcery
+   mkdir -p ~/Videos
    ```
 
 3. Check journal logs for save confirmation:
@@ -468,7 +468,7 @@ keyName = r
 keyMods = ctrl+super
 
 # Output
-outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+outputFile = ~/Videos/ReplaySorcery_%F_%H-%M-%S.mp4
 outputCommand = notify-send ReplaySorcery "Saved replay as %s"
 ```
 
