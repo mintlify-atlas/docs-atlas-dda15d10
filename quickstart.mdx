@@ -1,80 +1,475 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with ReplaySorcery in minutes
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through setting up ReplaySorcery, enabling the service, and saving your first replay. By the end, you'll have a working instant replay system on your Linux desktop.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Make sure you've already [installed ReplaySorcery](/installation) before following this guide.
 </Note>
+
+## Getting Started
+
+<Steps>
+  <Step title="Enable the systemd service">
+    ReplaySorcery runs as a user systemd service. Enable and start it:
+    
+    ```bash
+    systemctl --user enable --now replay-sorcery
+    ```
+    
+    This will:
+    - Enable the service to start automatically on login
+    - Start the service immediately
+    - Begin recording to the circular buffer
+    
+    <Info>
+      The service runs in the background and uses minimal resources. It will start automatically when you log in.
+    </Info>
+  </Step>
+
+  <Step title="Verify the service is running">
+    Check the service status:
+    
+    ```bash
+    systemctl --user status replay-sorcery
+    ```
+    
+    You should see output indicating the service is active:
+    
+    ```
+    ● replay-sorcery.service
+       Loaded: loaded
+       Active: active (running)
+    ```
+    
+    View live logs to see what ReplaySorcery is doing:
+    
+    ```bash
+    journalctl --user -fu replay-sorcery
+    ```
+    
+    <Note>
+      The logs will show which video and audio backends are being used, along with encoding parameters.
+    </Note>
+  </Step>
+
+  <Step title="Save your first replay">
+    Once the service is running, press the default hotkey to save a replay:
+    
+    **Default Hotkey:** `Ctrl + Super + R`
+    
+    - `Ctrl` = Control key
+    - `Super` = Windows/Command key
+    - `R` = R key
+    
+    When pressed, ReplaySorcery will:
+    1. Write the last 30 seconds from the buffer to a file
+    2. Save it to `~/Videos/ReplaySorcery/` by default
+    3. Show a desktop notification confirming the save
+    
+    <Info>
+      The notification will display the filename of the saved replay. If you don't see a notification, ensure `notify-send` is installed.
+    </Info>
+  </Step>
+
+  <Step title="Check your saved replay">
+    Navigate to the output directory to find your replay:
+    
+    ```bash
+    ls -lh ~/Videos/ReplaySorcery/
+    ```
+    
+    Files are named with a timestamp: `YYYY-MM-DD_HH-MM-SS.mp4`
+    
+    Play the video with your favorite player:
+    
+    ```bash
+    mpv ~/Videos/ReplaySorcery/*.mp4
+    ```
+    
+    or
+    
+    ```bash
+    vlc ~/Videos/ReplaySorcery/*.mp4
+    ```
+  </Step>
+</Steps>
+
+## Alternative Save Methods
+
+### Command-Line Interface
+
+If keyboard shortcuts don't work (e.g., on Wayland), trigger a save via command:
+
+```bash
+replay-sorcery save
+```
+
+<Info>
+  This is especially useful for Wayland users, as Wayland doesn't allow applications to listen to global keyboard events.
+</Info>
+
+### Wayland Window Manager Integration
+
+For Wayland compositors, bind the save command to a keyboard shortcut:
+
+<CodeGroup>
+```bash Sway
+# Add to ~/.config/sway/config
+bindsym $mod+Ctrl+r exec replay-sorcery save
+```
+
+```bash Hyprland
+# Add to ~/.config/hypr/hyprland.conf
+bind = SUPER_CTRL, R, exec, replay-sorcery save
+```
+
+```bash KDE Wayland
+# System Settings → Shortcuts → Custom Shortcuts
+# Command: replay-sorcery save
+# Shortcut: Ctrl+Meta+R
+```
+</CodeGroup>
+
+## Basic Configuration
+
+### Configuration Files
+
+ReplaySorcery uses two configuration files:
+
+1. **Global config**: `/usr/local/etc/replay-sorcery.conf` (or `/etc/replay-sorcery.conf`)
+2. **User config**: `~/.config/replay-sorcery.conf`
+
+User settings override global settings.
+
+### Create Your User Configuration
+
+<Steps>
+  <Step title="Create the config directory">
+    ```bash
+    mkdir -p ~/.config
+    ```
+  </Step>
+
+  <Step title="Create your configuration file">
+    ```bash
+    nano ~/.config/replay-sorcery.conf
+    ```
+    
+    or copy the default configuration:
+    
+    ```bash
+    cp /usr/local/etc/replay-sorcery.conf ~/.config/replay-sorcery.conf
+    ```
+  </Step>
+
+  <Step title="Apply your changes">
+    After editing the configuration, restart the service:
+    
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+    
+    <Warning>
+      Configuration changes only take effect after restarting the service.
+    </Warning>
+  </Step>
+</Steps>
+
+### Common Configuration Options
+
+Here are some frequently modified settings:
+
+#### Recording Duration
+
+Change how many seconds are kept in the buffer (default: 30):
+
+```ini
+# Record the last 60 seconds instead of 30
+recordSeconds = 60
+```
+
+<Note>
+  Longer durations use more memory. A 60-second buffer at 1080p/30fps may use several hundred MB of RAM.
+</Note>
+
+#### Output Location
+
+Customize where replays are saved (default: `~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4`):
+
+```ini
+# Save to a different directory with custom naming
+outputFile = ~/Recordings/replay_%F_%T.mp4
+```
+
+Format codes (from `strftime`):
+- `%F` = Date (YYYY-MM-DD)
+- `%T` = Time (HH:MM:SS)
+- `%H` = Hour, `%M` = Minute, `%S` = Second
+- `%Y` = Year, `%m` = Month, `%d` = Day
+
+#### Video Quality
+
+Adjust encoding quality (default: 28, range: 1-51, lower = better):
+
+```ini
+# Higher quality (larger files)
+videoQuality = 23
+
+# Lower quality (smaller files)
+videoQuality = 32
+```
+
+#### Framerate
+
+Change recording framerate (default: 30):
+
+```ini
+# Record at 60 FPS
+videoFramerate = 60
+```
+
+<Warning>
+  Higher framerates require more CPU/GPU power and produce larger files.
+</Warning>
+
+#### Custom Hotkey
+
+Change the save hotkey (default: `Ctrl+Super+R`):
+
+```ini
+# Use Ctrl+Shift+R instead
+keyName = r
+keyMods = ctrl+shift
+```
+
+Available modifiers: `ctrl`, `shift`, `alt`, `super`
+
+#### Video Encoder
+
+Select a specific encoder (default: auto):
+
+```ini
+# Use hardware-accelerated VA-API H.264
+videoEncoder = vaapi_h264
+
+# Use software x264 encoder
+videoEncoder = x264
+
+# Use HEVC/H.265 encoding
+videoEncoder = x265
+```
+
+Available encoders: `auto`, `hevc`, `x264`, `openh264`, `x265`, `vaapi_h264`, `vaapi_hevc`
+
+#### Audio Configuration
+
+Configure audio recording (default: auto):
+
+```ini
+# Disable audio recording
+audioInput = none
+
+# Use a specific PulseAudio source
+audioDevice = alsa_output.pci-0000_00_1f.3.analog-stereo.monitor
+
+# Change audio quality
+audioBitrate = 192K
+```
+
+<Info>
+  List available PulseAudio sources with: `pactl list sources`
+</Info>
+
+#### Post-Save Command
+
+Run a command after saving (default: `notify-send ReplaySorcery "Saved replay as %s"`):
+
+```ini
+# Upload to a server after saving
+outputCommand = notify-send ReplaySorcery "Saved %s" && ~/scripts/upload-replay.sh "%s"
+
+# Copy to clipboard
+outputCommand = echo "file://%s" | xclip -selection clipboard
+
+# No notification
+outputCommand =
+```
+
+The `%s` placeholder is replaced with the full path to the saved file.
+
+## Hardware Acceleration (Optional)
+
+For better performance, enable hardware-accelerated screen capture via KMS.
+
+<Steps>
+  <Step title="Start the KMS service">
+    The KMS service requires root permissions:
+    
+    ```bash
+    sudo systemctl enable --now replay-sorcery-kms
+    ```
+    
+    <Info>
+      The KMS service provides a socket that allows the user service to capture frames directly from the graphics card.
+    </Info>
+  </Step>
+
+  <Step title="Configure video input">
+    Edit `~/.config/replay-sorcery.conf`:
+    
+    ```ini
+    videoInput = kms_service
+    ```
+    
+    or let ReplaySorcery automatically detect the best method:
+    
+    ```ini
+    videoInput = hwaccel
+    ```
+  </Step>
+
+  <Step title="Restart the user service">
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+    
+    Check logs to verify hardware acceleration is working:
+    
+    ```bash
+    journalctl --user -fu replay-sorcery
+    ```
+    
+    You should see messages indicating KMS device usage.
+  </Step>
+</Steps>
+
+<Warning>
+  **NVIDIA Users**: Proprietary NVIDIA drivers do not support VA-API hardware acceleration. Use software encoding or the open-source Nouveau drivers. NVENC support is planned for future releases.
+</Warning>
+
+## Troubleshooting
+
+### Service won't start
+
+1. Check the service logs:
+   ```bash
+   journalctl --user -xeu replay-sorcery
+   ```
+
+2. Verify dependencies are installed (especially FFmpeg)
+
+3. Test running manually:
+   ```bash
+   replay-sorcery
+   ```
+
+### Hotkey doesn't work
+
+1. **On X11**: Ensure X11 support was enabled during build
+2. **On Wayland**: Use the command interface or window manager shortcuts
+3. Check if another application is using the same hotkey
+4. Try changing the hotkey in the configuration
+
+### No audio in replays
+
+1. Verify PulseAudio support was enabled during build:
+   ```bash
+   replay-sorcery --help
+   ```
+
+2. List available audio sources:
+   ```bash
+   pactl list sources
+   ```
+
+3. Set a specific audio device in the config:
+   ```ini
+   audioDevice = <source-name-from-pactl>
+   ```
+
+### Poor performance or high CPU usage
+
+1. Enable hardware acceleration (see above)
+2. Reduce framerate:
+   ```ini
+   videoFramerate = 30
+   ```
+
+3. Lower quality settings:
+   ```ini
+   videoQuality = 30
+   videoPreset = fast
+   ```
+
+4. Reduce buffer duration:
+   ```ini
+   recordSeconds = 20
+   ```
+
+### File not found / wrong output location
+
+1. Check the configured output path:
+   ```bash
+   grep outputFile ~/.config/replay-sorcery.conf
+   ```
+
+2. Ensure the output directory exists:
+   ```bash
+   mkdir -p ~/Videos/ReplaySorcery
+   ```
+
+3. Check journal logs for save confirmation:
+   ```bash
+   journalctl --user -u replay-sorcery | grep -i saved
+   ```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="gear" href="/configuration/overview">
+    Explore all configuration options
+  </Card>
+  <Card title="Hardware Acceleration" icon="bolt" href="/advanced/hardware-acceleration">
+    Optimize performance with hardware encoding
+  </Card>
+</CardGroup>
+
+## Complete Example Configuration
+
+Here's a complete example `~/.config/replay-sorcery.conf` with common customizations:
+
+```ini
+# Logging
+logLevel = info
+
+# Recording duration (seconds)
+recordSeconds = 45
+
+# Video settings
+videoInput = auto
+videoFramerate = 60
+videoEncoder = auto
+videoQuality = 25
+videoPreset = medium
+
+# Audio settings
+audioInput = auto
+audioSamplerate = 44100
+audioBitrate = 192K
+
+# Controls
+controller = auto
+keyName = r
+keyMods = ctrl+super
+
+# Output
+outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+outputCommand = notify-send ReplaySorcery "Saved replay as %s"
+```
+
+Copy this to your configuration file and adjust as needed!

@@ -1,0 +1,171 @@
+---
+title: Hardware Acceleration
+description: Enable KMS-based hardware acceleration for efficient screen capture
+---
+
+## Overview
+
+ReplaySorcery supports hardware-accelerated screen capture through the **Kernel Mode Setting (KMS)** subsystem. This provides significantly better performance than software-based screen capture, especially at high resolutions and framerates.
+
+<Note>
+Hardware acceleration uses VA-API (Video Acceleration API) for encoding, which provides efficient GPU-based video encoding with minimal CPU usage.
+</Note>
+
+## Why Hardware Acceleration Requires Root
+
+KMS-based screen capture requires direct access to DRM (Direct Rendering Manager) devices at `/dev/dri/cardX`. These devices are typically restricted to privileged users for security reasons.
+
+Rather than running ReplaySorcery as root, the recommended approach is to use the **KMS service** (`replay-sorcery-kms`), which runs as a system service with elevated privileges and communicates with the user-level ReplaySorcery process.
+
+## How It Works
+
+When hardware acceleration is enabled:
+
+1. **Screen Capture**: Uses the `kmsgrab` FFmpeg device to capture frames directly from the KMS framebuffer
+2. **Frame Transfer**: Frames are transferred via DMA-BUF file descriptors for zero-copy operation
+3. **Hardware Encoding**: VA-API encoders (H.264 or HEVC) encode frames on the GPU
+4. **Minimal CPU Usage**: The entire pipeline runs on the GPU with minimal CPU overhead
+
+<Info>
+The KMS service acts as a bridge, capturing frames with root privileges and passing them to your user-level ReplaySorcery process via Unix domain sockets.
+</Info>
+
+## Configuration Options
+
+To enable hardware acceleration, set `videoInput` in your configuration file:
+
+```conf
+# Use hardware acceleration via KMS service
+videoInput = hwaccel
+
+# Or explicitly specify KMS service
+videoInput = kms_service
+
+# Or use direct KMS (requires running as root, not recommended)
+videoInput = kms
+```
+
+### Video Input Options
+
+<Tabs>
+  <Tab title="auto">
+    Automatically detects the best available input method:
+    - Tries KMS service if available
+    - Falls back to X11 on X11 systems
+    - Falls back to software encoding
+  </Tab>
+  <Tab title="hwaccel">
+    Attempts to use hardware acceleration:
+    - Uses KMS service if the system service is running
+    - Falls back to software encoding if unavailable
+  </Tab>
+  <Tab title="kms_service">
+    Explicitly uses the KMS service:
+    - Requires `replay-sorcery-kms` system service to be running
+    - Fails if the service is not available
+    - Best for Wayland systems
+  </Tab>
+  <Tab title="kms">
+    Direct KMS access:
+    - Requires running ReplaySorcery as root
+    - **Not recommended** for security reasons
+    - Use the KMS service instead
+  </Tab>
+  <Tab title="x11">
+    Software-based X11 screen capture:
+    - Works on X11 systems without root
+    - Higher CPU usage than hardware acceleration
+    - Does not work on Wayland
+  </Tab>
+</Tabs>
+
+## NVIDIA Driver Limitations
+
+<Warning>
+The proprietary NVIDIA drivers **do not support VA-API**, which is required for hardware-accelerated encoding in ReplaySorcery.
+</Warning>
+
+### NVIDIA Driver Status
+
+| Driver | VA-API Support | Hardware Encoding |
+|--------|----------------|-------------------|
+| Nouveau (open source) | ✅ Supported | ✅ Works |
+| Proprietary NVIDIA | ❌ Not supported | ❌ Use software encoding |
+
+### NVIDIA Workarounds
+
+If you're using proprietary NVIDIA drivers:
+
+1. **Software Encoding**: ReplaySorcery automatically falls back to software encoding (x264/x265)
+2. **KMS for Capture**: You can still use KMS for screen capture with software encoding
+3. **Future NVENC Support**: Direct NVENC support may be added in future versions
+
+```conf
+# For NVIDIA proprietary drivers
+videoInput = kms_service  # Use KMS for capture
+videoEncoder = x264       # Use software encoding
+videoPreset = fast        # Use fast preset to reduce CPU usage
+```
+
+## Software Encoding Fallback
+
+When hardware acceleration is unavailable, ReplaySorcery automatically falls back to highly optimized software encoders:
+
+- **x264** (H.264): Fast, widely compatible, good quality
+- **x265** (HEVC): Better compression, higher CPU usage
+- **OpenH264** (H.264): Cisco's implementation, fallback option
+
+The `ultrafast` preset is used for real-time encoding with minimal CPU impact.
+
+<Info>
+Software encoding is optimized to use as little CPU as possible while maintaining acceptable quality. Even without hardware acceleration, ReplaySorcery can efficiently record gameplay.
+</Info>
+
+## Checking Hardware Support
+
+To verify VA-API support on your system:
+
+```bash
+# Check VA-API information
+vainfo
+
+# List available VA-API encoders
+vainfo | grep -i enc
+
+# Check if KMS devices are available
+replay-sorcery kms-devices
+```
+
+Expected output for supported systems:
+```
+libva info: VA-API version 1.20.0
+libva info: Driver version: Mesa Gallium driver
+VAProfileH264Main               : VAEntrypointEncSlice
+VAProfileHEVCMain               : VAEntrypointEncSlice
+```
+
+## Performance Comparison
+
+| Method | CPU Usage (1080p60) | Latency | Quality |
+|--------|---------------------|---------|----------|
+| VA-API H.264 | ~5% | Low | Excellent |
+| VA-API HEVC | ~5% | Low | Excellent |
+| x264 (ultrafast) | ~15-25% | Medium | Good |
+| x265 (ultrafast) | ~25-35% | Medium | Very Good |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="KMS Service Setup" icon="gear" href="/advanced/kms-service">
+    Learn how to enable and configure the KMS system service
+  </Card>
+  <Card title="Encoder Configuration" icon="video" href="/advanced/encoders">
+    Choose the best encoder for your system
+  </Card>
+  <Card title="Wayland Support" icon="window-maximize" href="/advanced/wayland">
+    Set up hardware acceleration on Wayland
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration/overview">
+    Configure video quality and performance settings
+  </Card>
+</CardGroup>

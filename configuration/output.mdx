@@ -1,0 +1,429 @@
+---
+title: Output Configuration
+description: Configure output file paths, naming patterns, and post-save commands
+---
+
+ReplaySorcery provides flexible configuration for where and how your replay videos are saved. This page covers output file configuration and post-save commands.
+
+## Output File Path
+
+<ParamField path="outputFile" type="string" default="~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4">
+  Where to save the output video file. This path supports:
+  - Tilde expansion (`~` for home directory)
+  - strftime format specifiers for timestamps
+  
+  **Default:** `~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4`
+  
+  This creates files like: `~/Videos/ReplaySorcery/2026-03-05_14-30-25.mp4`
+</ParamField>
+
+### Directory Structure
+
+The default configuration saves videos to:
+
+```
+~/Videos/ReplaySorcery/
+├── 2026-03-05_14-30-25.mp4
+├── 2026-03-05_14-35-10.mp4
+└── 2026-03-05_15-02-43.mp4
+```
+
+<Note>
+ReplaySorcery will automatically create the output directory if it doesn't exist.
+</Note>
+
+## Timestamp Formatting
+
+The output path uses `strftime` format specifiers to generate unique filenames based on the current date and time.
+
+### Common Format Specifiers
+
+<ResponseField name="Date Specifiers">
+  | Specifier | Description | Example |
+  |-----------|-------------|----------|
+  | `%Y` | Year (4 digits) | `2026` |
+  | `%y` | Year (2 digits) | `26` |
+  | `%m` | Month (01-12) | `03` |
+  | `%d` | Day of month (01-31) | `05` |
+  | `%F` | Date (YYYY-MM-DD) | `2026-03-05` |
+</ResponseField>
+
+<ResponseField name="Time Specifiers">
+  | Specifier | Description | Example |
+  |-----------|-------------|----------|
+  | `%H` | Hour 24-hour (00-23) | `14` |
+  | `%I` | Hour 12-hour (01-12) | `02` |
+  | `%M` | Minute (00-59) | `30` |
+  | `%S` | Second (00-59) | `25` |
+  | `%p` | AM/PM | `PM` |
+  | `%T` | Time (HH:MM:SS) | `14:30:25` |
+</ResponseField>
+
+<ResponseField name="Other Specifiers">
+  | Specifier | Description | Example |
+  |-----------|-------------|----------|
+  | `%A` | Weekday name | `Thursday` |
+  | `%a` | Weekday abbreviation | `Thu` |
+  | `%B` | Month name | `March` |
+  | `%b` | Month abbreviation | `Mar` |
+  | `%s` | Unix timestamp | `1772860225` |
+</ResponseField>
+
+### Output Path Examples
+
+<CodeGroup>
+  ```conf Default Format
+  outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+  # Result: ~/Videos/ReplaySorcery/2026-03-05_14-30-25.mp4
+  ```
+
+  ```conf Date Folders
+  outputFile = ~/Videos/ReplaySorcery/%Y-%m-%d/%H-%M-%S.mp4
+  # Result: ~/Videos/ReplaySorcery/2026-03-05/14-30-25.mp4
+  ```
+
+  ```conf Descriptive Names
+  outputFile = ~/Videos/ReplaySorcery/replay_%Y%m%d_%H%M%S.mp4
+  # Result: ~/Videos/ReplaySorcery/replay_20260305_143025.mp4
+  ```
+
+  ```conf Month Folders
+  outputFile = ~/Videos/ReplaySorcery/%Y-%m/%d_%H-%M-%S.mp4
+  # Result: ~/Videos/ReplaySorcery/2026-03/05_14-30-25.mp4
+  ```
+
+  ```conf Unix Timestamp
+  outputFile = ~/Videos/ReplaySorcery/%s.mp4
+  # Result: ~/Videos/ReplaySorcery/1772860225.mp4
+  ```
+
+  ```conf Desktop (Quicksave)
+  outputFile = ~/Desktop/replay_%F_%H-%M-%S.mp4
+  # Result: ~/Desktop/replay_2026-03-05_14-30-25.mp4
+  ```
+
+  ```conf Game-Specific Folder
+  outputFile = ~/Videos/Minecraft/%Y-%m-%d_%H-%M-%S.mp4
+  # Result: ~/Videos/Minecraft/2026-03-05_14-30-25.mp4
+  ```
+</CodeGroup>
+
+### Organizing by Date
+
+For better organization with many recordings:
+
+<AccordionGroup>
+  <Accordion title="By Year and Month">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%Y/%m/%d_%H-%M-%S.mp4
+    ```
+    
+    Creates structure:
+    ```
+    ~/Videos/ReplaySorcery/
+    └── 2026/
+        └── 03/
+            ├── 05_14-30-25.mp4
+            └── 05_15-02-43.mp4
+    ```
+  </Accordion>
+
+  <Accordion title="By Date">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%F/%H-%M-%S.mp4
+    ```
+    
+    Creates structure:
+    ```
+    ~/Videos/ReplaySorcery/
+    └── 2026-03-05/
+        ├── 14-30-25.mp4
+        └── 15-02-43.mp4
+    ```
+  </Accordion>
+
+  <Accordion title="By Week">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%Y-W%W/%a_%H-%M-%S.mp4
+    ```
+    
+    Creates structure:
+    ```
+    ~/Videos/ReplaySorcery/
+    └── 2026-W10/
+        ├── Thu_14-30-25.mp4
+        └── Thu_15-02-43.mp4
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Output Command
+
+<ParamField path="outputCommand" type="string" default='notify-send ReplaySorcery "Saved replay as %s"'>
+  A command to run when a video is successfully saved. The command supports printf-style formatting:
+  
+  - `%s` - The full path to the saved video file
+  
+  **Default:** `notify-send ReplaySorcery "Saved replay as %s"`
+  
+  <Info>
+    The output command runs asynchronously and won't block ReplaySorcery from continuing to record.
+  </Info>
+</ParamField>
+
+### Notification Examples
+
+<CodeGroup>
+  ```conf Default Notification
+  outputCommand = notify-send ReplaySorcery "Saved replay as %s"
+  ```
+
+  ```conf Simple Notification
+  outputCommand = notify-send "Replay saved!"
+  ```
+
+  ```conf Notification with Icon
+  outputCommand = notify-send -i video-x-generic ReplaySorcery "Saved: %s"
+  ```
+
+  ```conf KDE Notification
+  outputCommand = kdialog --passivepopup "Replay saved: %s" 5
+  ```
+
+  ```conf No Notification
+  outputCommand = 
+  ```
+</CodeGroup>
+
+### Advanced Output Commands
+
+You can use the output command to automate post-processing:
+
+<AccordionGroup>
+  <Accordion title="Copy to Clipboard">
+    Copy the file path to clipboard for easy pasting:
+    
+    ```conf
+    outputCommand = echo %s | xclip -selection clipboard && notify-send "Replay saved and copied to clipboard"
+    ```
+  </Accordion>
+
+  <Accordion title="Upload to Server">
+    Automatically upload to a remote server:
+    
+    ```conf
+    outputCommand = scp %s user@server:/path/to/videos/ && notify-send "Replay uploaded"
+    ```
+  </Accordion>
+
+  <Accordion title="Open in Video Editor">
+    Automatically open the saved video in your editor:
+    
+    ```conf
+    outputCommand = kdenlive %s &
+    ```
+  </Accordion>
+
+  <Accordion title="Generate Thumbnail">
+    Create a thumbnail using ffmpeg:
+    
+    ```conf
+    outputCommand = ffmpeg -i %s -vf "thumbnail" -frames:v 1 %s.jpg && notify-send "Replay saved with thumbnail"
+    ```
+  </Accordion>
+
+  <Accordion title="Custom Script">
+    Run a custom script with the video path:
+    
+    ```conf
+    outputCommand = ~/.local/bin/process-replay.sh %s
+    ```
+    
+    Example `process-replay.sh`:
+    ```bash
+    #!/bin/bash
+    VIDEO_PATH="$1"
+    VIDEO_NAME=$(basename "$VIDEO_PATH")
+    
+    # Send notification
+    notify-send "Processing replay" "$VIDEO_NAME"
+    
+    # Compress video
+    ffmpeg -i "$VIDEO_PATH" -c:v libx264 -crf 23 "${VIDEO_PATH%.mp4}_compressed.mp4"
+    
+    # Upload to cloud storage
+    rclone copy "${VIDEO_PATH%.mp4}_compressed.mp4" remote:replays/
+    
+    notify-send "Replay processed" "Uploaded $VIDEO_NAME"
+    ```
+  </Accordion>
+
+  <Accordion title="Multiple Actions">
+    Chain multiple commands:
+    
+    ```conf
+    outputCommand = notify-send "Replay saved: %s" && echo %s >> ~/.replay-history.txt
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete Configuration Examples
+
+<AccordionGroup>
+  <Accordion title="Default Configuration">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+    outputCommand = notify-send ReplaySorcery "Saved replay as %s"
+    ```
+  </Accordion>
+
+  <Accordion title="Organized by Date">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%Y-%m/%d_%H-%M-%S.mp4
+    outputCommand = notify-send -i video-x-generic "Replay Saved" "$(basename %s)"
+    ```
+  </Accordion>
+
+  <Accordion title="Desktop Quicksave">
+    ```conf
+    outputFile = ~/Desktop/replay_%H-%M-%S.mp4
+    outputCommand = notify-send "Replay on Desktop" "%s"
+    ```
+  </Accordion>
+
+  <Accordion title="Auto-Upload Setup">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+    outputCommand = ~/.local/bin/upload-replay.sh %s
+    ```
+  </Accordion>
+
+  <Accordion title="Silent Mode (No Notifications)">
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%Y-%m-%d_%H-%M-%S.mp4
+    outputCommand = 
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## File Format
+
+<Note>
+ReplaySorcery currently outputs MP4 files (`.mp4` extension). The file format is determined by the extension you specify in `outputFile`.
+</Note>
+
+While `.mp4` is the standard and recommended format, you can experiment with other formats:
+
+```conf
+# MKV format
+outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mkv
+
+# WebM format (may require different encoder settings)
+outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.webm
+```
+
+<Warning>
+Changing the file extension may not work correctly if the encoders aren't compatible with the container format. Stick with `.mp4` for best compatibility.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Directory Not Found">
+    If you get errors about missing directories:
+    
+    - ReplaySorcery should create directories automatically
+    - Ensure the parent directory exists and is writable
+    - Check permissions:
+      ```bash
+      ls -la ~/Videos/
+      ```
+    - Manually create the directory:
+      ```bash
+      mkdir -p ~/Videos/ReplaySorcery
+      ```
+  </Accordion>
+
+  <Accordion title="Permission Denied">
+    If you can't save files to the output location:
+    
+    1. Check directory permissions:
+       ```bash
+       ls -la $(dirname ~/Videos/ReplaySorcery/)
+       ```
+    
+    2. Ensure the directory is writable:
+       ```bash
+       chmod u+w ~/Videos/ReplaySorcery
+       ```
+    
+    3. Try a different output location:
+       ```conf
+       outputFile = ~/replays/%F_%H-%M-%S.mp4
+       ```
+  </Accordion>
+
+  <Accordion title="Output Command Not Running">
+    If your output command doesn't execute:
+    
+    1. Test the command manually:
+       ```bash
+       notify-send ReplaySorcery "Test"
+       ```
+    
+    2. Check for command availability:
+       ```bash
+       which notify-send
+       ```
+    
+    3. Use absolute paths in your command:
+       ```conf
+       outputCommand = /usr/bin/notify-send "Replay saved: %s"
+       ```
+    
+    4. Check ReplaySorcery logs:
+       ```bash
+       journalctl --user -fu replay-sorcery
+       ```
+  </Accordion>
+
+  <Accordion title="Filename Conflicts">
+    If files are being overwritten:
+    
+    - The default timestamp format includes seconds, which should prevent conflicts
+    - If saving multiple videos per second, add milliseconds or a counter
+    - Use the Unix timestamp for guaranteed uniqueness:
+      ```conf
+      outputFile = ~/Videos/ReplaySorcery/%s.mp4
+      ```
+  </Accordion>
+
+  <Accordion title="Special Characters in Path">
+    If your path contains special characters:
+    
+    - Avoid spaces in directory names when possible
+    - Use valid filename characters
+    - Don't use: `/` `:` `*` `?` `"` `<` `>` `|` in filename parts
+    - Stick to alphanumeric, hyphens, and underscores for best compatibility
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Timestamps" icon="clock">
+    Always include timestamps in filenames to avoid conflicts and make sorting easier.
+  </Card>
+  
+  <Card title="Organize by Date" icon="calendar">
+    Use date-based folders for better organization with many recordings.
+  </Card>
+  
+  <Card title="Keep Notifications Brief" icon="bell">
+    Use concise notification messages that don't interrupt gameplay.
+  </Card>
+  
+  <Card title="Test Output Commands" icon="vial">
+    Always test custom output commands manually before using them in production.
+  </Card>
+</CardGroup>

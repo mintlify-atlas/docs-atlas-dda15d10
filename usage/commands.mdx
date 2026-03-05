@@ -1,0 +1,243 @@
+---
+title: Command Line Interface
+description: Available commands and their usage
+---
+
+ReplaySorcery provides several command-line commands for specific operations. When run without arguments, ReplaySorcery starts the main recording daemon.
+
+## Available Commands
+
+### `save`
+
+Triggers ReplaySorcery to save the current buffer as a video file.
+
+```bash
+replay-sorcery save
+```
+
+**Usage:**
+- This command connects to a running ReplaySorcery instance via Unix socket
+- Sends a save request to the daemon
+- The daemon will save the last N seconds (configured via `recordSeconds`) to a video file
+- Returns immediately after sending the request
+
+**Output:**
+- No output on success
+- Error message if connection fails or ReplaySorcery is not running
+
+<Info>
+This command is essential for Wayland users who cannot use global keyboard shortcuts. Configure your window manager to bind a key to `replay-sorcery save`.
+</Info>
+
+**Example Integration:**
+
+<Tabs>
+  <Tab title="Sway">
+    Add to your `~/.config/sway/config`:
+
+    ```bash
+    bindsym $mod+Ctrl+r exec replay-sorcery save
+    ```
+  </Tab>
+  <Tab title="Hyprland">
+    Add to your `~/.config/hypr/hyprland.conf`:
+
+    ```bash
+    bind = SUPER CTRL, R, exec, replay-sorcery save
+    ```
+  </Tab>
+  <Tab title="KDE Plasma (Wayland)">
+    1. Open System Settings > Shortcuts > Custom Shortcuts
+    2. Create new > Global Shortcut > Command/URL
+    3. Trigger: `Ctrl+Meta+R`
+    4. Action: `replay-sorcery save`
+  </Tab>
+</Tabs>
+
+**Wayland Configuration:**
+
+Set the controller to `command` mode in your config file:
+
+```ini
+# ~/.config/replay-sorcery.conf
+controller = command
+```
+
+This disables the built-in keyboard listener and relies entirely on external commands.
+
+### `kms-devices`
+
+Lists available KMS (Kernel Mode Setting) devices and planes for hardware-accelerated capture.
+
+```bash
+replay-sorcery kms-devices
+```
+
+**Usage:**
+- Enumerates all `/dev/dri/cardN` devices
+- Lists DRM planes with active framebuffers
+- Shows resolution and color depth information
+
+**Example Output:**
+
+```
+card0:32 (1920x1080x24)
+card0:41 (1920x1080x24)
+card1:35 (2560x1440x30)
+```
+
+**Output Format:**
+
+```
+cardN:PLANE_ID (WIDTHxHEIGHTxDEPTH)
+```
+
+Where:
+- `cardN`: DRM card device number
+- `PLANE_ID`: DRM plane identifier
+- `WIDTH`x`HEIGHT`: Resolution in pixels
+- `DEPTH`: Color bit depth
+
+**Using Device Information:**
+
+Use the device identifier in your configuration file:
+
+```ini
+# ~/.config/replay-sorcery.conf
+videoInput = kms
+videoDevice = card0:32
+```
+
+Or for KMS service mode:
+
+```ini
+videoInput = kms_service
+videoDevice = card0:32
+```
+
+<Warning>
+This command requires `libdrm` support. If ReplaySorcery was compiled without `libdrm`, you'll see:
+
+```
+libdrm was not found during compilation
+```
+</Warning>
+
+**When to Use:**
+- Setting up hardware-accelerated capture
+- Troubleshooting display capture issues
+- Identifying which GPU/display to record from in multi-GPU setups
+- Verifying KMS device availability
+
+<Note>
+Only planes with active framebuffers (currently displaying content) are listed. If a display is turned off or disconnected, its plane won't appear.
+</Note>
+
+### `kms-service`
+
+Runs the KMS service daemon for hardware-accelerated capture with root privileges.
+
+```bash
+replay-sorcery kms-service
+```
+
+**Usage:**
+- This command is typically run by the `replay-sorcery-kms.service` systemd service
+- Should not be run manually under normal circumstances
+- Requires root privileges to access KMS devices
+- Creates a Unix socket at `/var/run/replay-sorcery-kms.sock` (or similar path)
+- Listens for connections from user-level ReplaySorcery instances
+- Provides hardware-accelerated frame capture to non-root processes
+
+**Operation:**
+
+1. Initializes KMS device with requested parameters
+2. Binds to Unix socket with permissive permissions (`umask 0000`)
+3. Accepts connections from ReplaySorcery clients
+4. Captures frames from KMS device
+5. Sends frame descriptors and DRM file descriptors to clients
+6. Runs until `SIGINT` or `SIGTERM` received
+
+**Connection Protocol:**
+
+When a client connects:
+1. Receives device info (framerate, device name)
+2. Opens requested KMS device
+3. Sends codec parameters and DRM file descriptor to client
+4. Continuously sends frame descriptors with timing information
+5. Handles disconnection gracefully and waits for next client
+
+<Warning>
+Do not run this command manually. Use systemd:
+
+```bash
+sudo systemctl start replay-sorcery-kms
+```
+
+See [systemd documentation](/usage/systemd) for details.
+</Warning>
+
+**Why KMS Service?**
+
+Hardware-accelerated capture requires:
+- Direct access to `/dev/dri/cardN` devices
+- Root privileges or membership in the `video` group
+- Ability to manipulate DRM planes
+
+The KMS service architecture:
+- Runs one privileged daemon with hardware access
+- Allows multiple unprivileged users to capture frames
+- Provides security isolation
+- Simplifies permission management
+
+## Command Summary Table
+
+| Command | Purpose | Privileges | Typical Usage |
+|---------|---------|------------|---------------|
+| `save` | Save current buffer | User | Wayland keyboard shortcut alternative |
+| `kms-devices` | List capture devices | User | Identify device for config |
+| `kms-service` | Hardware capture daemon | Root (via systemd) | Automatic via systemd service |
+
+## Exit Codes
+
+All commands follow standard Unix exit code conventions:
+
+- `0`: Success
+- `1`: General failure
+- Other: FFmpeg error codes (see FFmpeg documentation)
+
+## Error Messages
+
+### Unknown Command
+
+```
+Unknown command: [command]
+```
+
+You specified a command that doesn't exist. Check your spelling or see available commands above.
+
+### Connection Failed (save)
+
+```
+Failed to connect to socket: [error]
+```
+
+The `save` command couldn't connect to the running daemon. Ensure ReplaySorcery is running:
+
+```bash
+systemctl --user status replay-sorcery
+```
+
+### libdrm Not Found (kms-devices)
+
+```
+libdrm was not found during compilation
+```
+
+ReplaySorcery was compiled without KMS support. Rebuild with libdrm or use X11 capture instead.
+
+## Next Steps
+
+- Set up [systemd services](/usage/systemd) for automatic operation
+- Learn about [running modes](/usage/running)
+- Configure [keyboard shortcuts](/configuration/controls) or command-based saves

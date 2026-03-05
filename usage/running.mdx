@@ -1,0 +1,150 @@
+---
+title: Running ReplaySorcery
+description: Learn how to run ReplaySorcery manually or as a service
+---
+
+ReplaySorcery can be run manually from the command line or as a systemd service. Running as a service is recommended for most users as it ensures ReplaySorcery starts automatically and runs continuously in the background.
+
+## Running as a Service
+
+The recommended way to run ReplaySorcery is as a user systemd service:
+
+```bash
+systemctl --user enable --now replay-sorcery
+```
+
+This command both enables the service (so it starts on login) and starts it immediately.
+
+<Info>
+For hardware acceleration support, you may also need to enable the system-level KMS service. See the [systemd documentation](/usage/systemd) for details.
+</Info>
+
+## Running Manually
+
+You can also run ReplaySorcery directly from the command line:
+
+```bash
+replay-sorcery
+```
+
+When started, ReplaySorcery will display:
+
+```
+ReplaySorcery  Copyright (C) 2020-2021  ReplaySorcery developers
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see COPYING for details.
+FFmpeg version: [version info]
+```
+
+<Warning>
+Running manually means ReplaySorcery will stop when you close the terminal or log out. Use systemd for persistent operation.
+</Warning>
+
+## How It Works
+
+### Circular Buffer Recording
+
+ReplaySorcery uses a circular buffer to continuously record your screen without filling up your disk. Here's how it works:
+
+1. **Continuous Capture**: ReplaySorcery captures video frames from your screen at the configured framerate (default: 30 fps)
+2. **Encoding**: Frames are encoded in real-time using the configured video encoder
+3. **Buffer Storage**: Encoded packets are stored in a circular buffer in memory
+4. **Buffer Duration**: The buffer holds the last N seconds of video (default: 30 seconds, configurable via `recordSeconds` in the config)
+5. **Overwriting**: When the buffer is full, new packets overwrite the oldest packets
+
+This design means:
+- ReplaySorcery uses a fixed amount of memory regardless of how long it runs
+- No disk space is consumed until you save a replay
+- You can always capture the last 30 seconds (or your configured duration) of gameplay
+
+### Audio Recording
+
+If audio recording is enabled (default), ReplaySorcery also maintains a separate circular buffer for audio:
+
+- Audio is captured from PulseAudio (or configured audio backend)
+- Audio is encoded separately and synchronized with video
+- The audio buffer matches the video buffer duration
+
+<Note>
+If audio initialization fails, ReplaySorcery will continue recording video-only. Check logs if audio is missing from saved replays.
+</Note>
+
+## Saving Replays
+
+When you press the configured keyboard shortcut (default: `Ctrl+Super+R`), ReplaySorcery:
+
+1. Locks the audio buffer to prevent changes during output
+2. Determines the start time from the video buffer
+3. Writes both audio and video streams to an output file
+4. Synchronizes audio with the video timeline
+5. Saves the file to the configured location (default: `~/Videos/ReplaySorcery/`)
+6. Executes the output command (default: shows a desktop notification)
+
+### Keyboard Shortcuts
+
+By default, ReplaySorcery listens for keyboard shortcuts using X11. The default shortcut is:
+
+- **`Ctrl+Super+R`**: Save the last 30 seconds as a video file
+
+<Tabs>
+  <Tab title="X11">
+    On X11, ReplaySorcery can listen directly to keyboard events. No additional configuration needed.
+  </Tab>
+  <Tab title="Wayland">
+    Wayland does not allow applications to listen to global keyboard shortcuts. You must configure your window manager to run the save command:
+
+    ```bash
+    replay-sorcery save
+    ```
+
+    Then set `controller = command` in your configuration file. See [Commands](/usage/commands) for details.
+  </Tab>
+</Tabs>
+
+## Operation Details
+
+### Main Loop
+
+ReplaySorcery's main loop performs these operations continuously:
+
+1. **Capture Frame**: Get the next frame from the video device (X11, KMS, or hardware accelerated)
+2. **Encode Frame**: Send the frame to the video encoder
+3. **Store Packet**: Add the encoded packet to the circular buffer
+4. **Check for Save Request**: Check if the controller has requested a save operation
+5. **Output Video**: If save requested, write the buffer contents to a file
+
+### Error Handling
+
+If frame capture fails (for example, if the window is minimized or display is off):
+
+- ReplaySorcery silences warnings to avoid log spam
+- Recording continues when frames become available again
+- The buffer may contain gaps during the unavailable period
+
+<Info>
+ReplaySorcery is designed to be resilient and continue running even when temporary capture failures occur.
+</Info>
+
+## Stopping ReplaySorcery
+
+### Systemd Service
+
+```bash
+systemctl --user stop replay-sorcery
+```
+
+### Manual Process
+
+Press `Ctrl+C` or send `SIGINT`/`SIGTERM` to the process. ReplaySorcery will:
+
+1. Display "Exiting..."
+2. Clean up resources (devices, encoders, buffers)
+3. Close audio threads
+4. Exit gracefully
+
+## Next Steps
+
+- Learn about available [commands](/usage/commands)
+- Configure [systemd services](/usage/systemd) for automatic startup
+- Customize [configuration options](/configuration/overview) for your needs

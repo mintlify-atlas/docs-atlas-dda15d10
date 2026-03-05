@@ -1,0 +1,425 @@
+---
+title: Wayland Support
+description: Configure ReplaySorcery on Wayland compositors with hardware acceleration
+---
+
+## Overview
+
+Wayland's security model imposes restrictions that affect ReplaySorcery's functionality. Unlike X11, Wayland does not allow applications to:
+
+- Grab screen content without explicit permission
+- Listen to global keyboard events
+
+<Warning>
+Direct Wayland screen capture APIs (like `wlr-screencopy`) are **not currently supported**. ReplaySorcery uses KMS-based capture instead.
+</Warning>
+
+## Wayland Limitations
+
+### Screen Capture
+
+| Method | X11 | Wayland |
+|--------|-----|----------|
+| Software capture (X11) | ✅ Works | ❌ Not available |
+| Direct KMS capture | ✅ Works | ✅ Works (requires root) |
+| KMS service capture | ✅ Works | ✅ Works (recommended) |
+| wlr-screencopy | N/A | ❌ Not implemented |
+
+<Info>
+KMS capture works on both X11 and Wayland because it captures directly from the GPU framebuffer, bypassing the display server.
+</Info>
+
+### Keyboard Events
+
+| Method | X11 | Wayland |
+|--------|-----|----------|
+| X11 global hotkeys | ✅ Works | ❌ Security restriction |
+| Command controller | ✅ Works | ✅ Works |
+| Debug controller | ✅ Works | ✅ Works |
+
+Wayland compositors do not allow applications to listen to keyboard events unless they are the active window. This prevents ReplaySorcery from using the default hotkey controller.
+
+## Recommended Wayland Setup
+
+The recommended configuration for Wayland uses:
+1. **KMS service** for screen capture (hardware accelerated)
+2. **Command controller** for save trigger (compositor hotkey integration)
+
+### Configuration
+
+Edit `~/.config/replay-sorcery.conf`:
+
+```conf
+# Use KMS service for hardware-accelerated capture
+videoInput = kms_service
+
+# Use command controller for save trigger
+controller = command
+
+# Auto-detect KMS device
+videoDevice = auto
+
+# Use VA-API encoder if available
+videoEncoder = auto
+```
+
+### Enable KMS Service
+
+The KMS service must be running:
+
+```bash
+# Enable and start the system service
+sudo systemctl enable --now replay-sorcery-kms
+
+# Check service status
+sudo systemctl status replay-sorcery-kms
+```
+
+### Start ReplaySorcery
+
+```bash
+# Enable and start the user service
+systemctl --user enable --now replay-sorcery
+
+# Check user service status
+systemctl --user status replay-sorcery
+```
+
+## Compositor Integration
+
+Since ReplaySorcery cannot listen to global hotkeys on Wayland, you need to configure your compositor to trigger saves.
+
+### Configure Compositor Hotkey
+
+<Tabs>
+  <Tab title="Sway">
+    Add to `~/.config/sway/config`:
+    ```bash
+    # Save replay with Ctrl+Super+R
+    bindsym Ctrl+Mod4+r exec replay-sorcery save
+    ```
+    
+    Then reload Sway:
+    ```bash
+    swaymsg reload
+    ```
+  </Tab>
+  <Tab title="Hyprland">
+    Add to `~/.config/hypr/hyprland.conf`:
+    ```bash
+    # Save replay with Ctrl+Super+R
+    bind = CTRL_SUPER, R, exec, replay-sorcery save
+    ```
+    
+    Then reload Hyprland:
+    ```bash
+    hyprctl reload
+    ```
+  </Tab>
+  <Tab title="GNOME (Wayland)">
+    Using GNOME Settings:
+    1. Open **Settings** → **Keyboard** → **Keyboard Shortcuts**
+    2. Scroll to **Custom Shortcuts**
+    3. Click **+** to add new shortcut
+    4. Name: `Save Replay`
+    5. Command: `replay-sorcery save`
+    6. Shortcut: Press **Ctrl+Super+R**
+    
+    Or via command line:
+    ```bash
+    # Add custom keybinding
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/replay-sorcery/ name 'Save Replay'
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/replay-sorcery/ command 'replay-sorcery save'
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/replay-sorcery/ binding '<Ctrl><Super>r'
+    ```
+  </Tab>
+  <Tab title="KDE Plasma (Wayland)">
+    Using System Settings:
+    1. Open **System Settings** → **Shortcuts** → **Custom Shortcuts**
+    2. Click **Edit** → **New** → **Global Shortcut** → **Command/URL**
+    3. Action: Set trigger to **Ctrl+Super+R**
+    4. Action: Set command to `replay-sorcery save`
+    
+    Or edit `~/.config/kglobalshortcutsrc`:
+    ```ini
+    [replay-sorcery.desktop]
+    save=Ctrl+Meta+R,none,Save Replay
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+The command `replay-sorcery save` sends a save signal to the running ReplaySorcery instance via Unix socket.
+</Note>
+
+## Testing the Setup
+
+### Verify KMS Capture
+
+```bash
+# List available KMS devices
+replay-sorcery kms-devices
+
+# Expected output:
+# card0:32: 1920x1080 (connector: HDMI-A-1, in use: yes)
+```
+
+### Verify Service Status
+
+```bash
+# Check system service (KMS)
+sudo systemctl is-active replay-sorcery-kms
+# Should output: active
+
+# Check user service
+systemctl --user is-active replay-sorcery
+# Should output: active
+```
+
+### Test Save Command
+
+```bash
+# Manually trigger a save
+replay-sorcery save
+
+# Check for saved file
+ls -lh ~/Videos/ReplaySorcery/
+```
+
+## Controller Options
+
+<Tabs>
+  <Tab title="command (Recommended)">
+    ```conf
+    controller = command
+    ```
+    
+    **How it works:**
+    - ReplaySorcery listens on a Unix socket
+    - `replay-sorcery save` sends a message to the socket
+    - Triggered by compositor hotkey
+    
+    **Pros:**
+    - Works on Wayland and X11
+    - Integrates with compositor keybindings
+    - No security restrictions
+    
+    **Cons:**
+    - Requires compositor configuration
+    - Extra setup step
+  </Tab>
+  <Tab title="x11 (X11 only)">
+    ```conf
+    controller = x11
+    keyName = r
+    keyMods = ctrl+super
+    ```
+    
+    **How it works:**
+    - Uses X11 XGrabKey to listen for global hotkey
+    - Built-in hotkey support
+    
+    **Pros:**
+    - No extra configuration needed
+    - Works out of the box on X11
+    
+    **Cons:**
+    - **Does not work on Wayland**
+    - Only available on X11
+  </Tab>
+  <Tab title="debug (Development)">
+    ```conf
+    controller = debug
+    ```
+    
+    **How it works:**
+    - Automatically saves every 30 seconds
+    - No user interaction required
+    
+    **Pros:**
+    - No hotkey needed
+    - Good for testing
+    
+    **Cons:**
+    - Saves too frequently for normal use
+    - Only useful for debugging
+  </Tab>
+</Tabs>
+
+## Compositor-Specific Notes
+
+### Sway
+
+<Info>
+Sway is based on wlroots and has excellent KMS support. This is one of the best-supported Wayland compositors.
+</Info>
+
+No special configuration needed beyond the standard Wayland setup.
+
+### Hyprland
+
+Hyprland should work similarly to Sway. Make sure the KMS service is running.
+
+### GNOME (Mutter)
+
+GNOME on Wayland should work, but may have additional restrictions:
+
+- Ensure Wayland session (not Xorg)
+- KMS capture should work on most hardware
+- Some Intel integrated graphics may have issues
+
+### KDE Plasma
+
+KDE Plasma on Wayland should work:
+
+- Use KWin's custom shortcuts feature
+- KMS capture works on supported hardware
+- Check that `replay-sorcery-kms` service is running
+
+### Other Compositors
+
+Most wlroots-based compositors should work:
+- River
+- Wayfire  
+- Cage
+- Labwc
+
+As long as they support custom keybindings and KMS is available.
+
+## Troubleshooting
+
+### "Failed to connect to KMS service"
+
+```bash
+# Make sure the service is running
+sudo systemctl start replay-sorcery-kms
+
+# Check socket exists
+ls -l /run/replay-sorcery-kms-device.sock
+```
+
+### "No KMS devices found"
+
+```bash
+# List KMS devices
+replay-sorcery kms-devices
+
+# Check DRM devices exist
+ls -l /dev/dri/
+
+# Install libdrm if needed
+sudo apt install libdrm2  # Debian/Ubuntu
+sudo pacman -S libdrm      # Arch
+```
+
+### Hotkey Not Working
+
+<Warning>
+Remember: ReplaySorcery **cannot** listen to hotkeys on Wayland. You must use the command controller with compositor integration.
+</Warning>
+
+```bash
+# Verify controller is set to command
+grep controller ~/.config/replay-sorcery.conf
+# Should show: controller = command
+
+# Test save command manually
+replay-sorcery save
+
+# If manual command works, check compositor config
+```
+
+### Black Screen / Nothing Captured
+
+```bash
+# Check which device is being used
+journalctl --user -u replay-sorcery | grep -i kms
+
+# Try specifying device explicitly
+replay-sorcery kms-devices  # List devices
+
+# Edit config with specific device
+echo "videoDevice = card0:32" >> ~/.config/replay-sorcery.conf
+
+# Restart service
+systemctl --user restart replay-sorcery
+```
+
+### VA-API Encoder Not Available
+
+```bash
+# Check VA-API support
+vainfo
+
+# If no encoders found, fall back to software
+echo "videoEncoder = x264" >> ~/.config/replay-sorcery.conf
+systemctl --user restart replay-sorcery
+```
+
+## Performance Tips
+
+### Optimize for Wayland
+
+```conf
+# Use hardware acceleration
+videoInput = kms_service
+videoEncoder = auto  # Uses VA-API if available
+
+# Reduce framerate if needed
+videoFramerate = 30  # Lower = less resource usage
+
+# Use fast preset
+videoPreset = fast
+
+# Lower quality for better performance
+videoQuality = 28  # Higher number = lower quality/smaller file
+```
+
+### Monitor Resource Usage
+
+```bash
+# Check CPU/GPU usage
+htop
+
+# Check service logs for performance warnings
+journalctl --user -u replay-sorcery -f
+```
+
+## Alternative: XWayland Applications
+
+If you run a game or application under XWayland, you might be able to use X11 capture:
+
+```conf
+# Try X11 capture for XWayland apps
+videoInput = x11
+controller = x11
+```
+
+However, this is **not recommended** as it only captures XWayland windows, not native Wayland clients.
+
+## Future Wayland Support
+
+Potential future improvements:
+
+- **wlr-screencopy protocol**: Support for direct Wayland capture
+- **PipeWire capture**: Use PipeWire screen capture APIs
+- **Portal integration**: Use xdg-desktop-portal for screen capture
+
+Currently, KMS-based capture is the most reliable method.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="KMS Service" icon="gear" href="/advanced/kms-service">
+    Detailed KMS service configuration and troubleshooting
+  </Card>
+  <Card title="Hardware Acceleration" icon="rocket" href="/advanced/hardware-acceleration">
+    Learn about hardware acceleration benefits and requirements
+  </Card>
+  <Card title="Encoders" icon="video" href="/advanced/encoders">
+    Choose the best encoder for your system
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration/overview">
+    Full configuration reference
+  </Card>
+</CardGroup>

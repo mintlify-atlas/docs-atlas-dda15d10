@@ -1,0 +1,186 @@
+---
+title: Configuration Overview
+description: Learn how to configure ReplaySorcery with config files
+---
+
+ReplaySorcery uses configuration files to customize its behavior. This page covers the basics of configuration file locations, format, and how to reload your settings.
+
+## Config File Locations
+
+ReplaySorcery supports two configuration files with different priorities:
+
+<AccordionGroup>
+  <Accordion title="Global Configuration">
+    The global config file is located at:
+    ```
+    /usr/local/etc/replay-sorcery.conf
+    ```
+    
+    This file contains system-wide defaults and is installed automatically. The exact location may vary based on your `CMAKE_INSTALL_PREFIX` during installation.
+    
+    <Note>
+      The global config file should not be modified directly if you want to preserve your settings across updates.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Local Configuration">
+    The local config file is located at:
+    ```
+    ~/.config/replay-sorcery.conf
+    ```
+    
+    Options in this file will **overwrite** options in the global file. This is where you should make your personal customizations.
+    
+    <Tip>
+      You only need to specify the options you want to change. All other options will use the global defaults.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Config File Format
+
+The configuration file uses a simple `key = value` format:
+
+```conf
+# Comments start with a hash
+recordSeconds = 30
+videoFramerate = 60
+
+# You can use auto for many options
+videoWidth = auto
+videoHeight = auto
+
+# Keyboard shortcuts use modifiers
+keyName = r
+keyMods = ctrl+super
+```
+
+### Value Types
+
+Different configuration options accept different types of values:
+
+<CodeGroup>
+  ```conf String Values
+  # Simple strings
+  keyName = r
+  videoDevice = auto
+  ```
+
+  ```conf Numeric Values
+  # Integers
+  recordSeconds = 30
+  videoFramerate = 60
+  videoQuality = 28
+  ```
+
+  ```conf Bitrate Values
+  # Values with SI prefixes
+  videoBitrate = 5M
+  audioBitrate = 128K
+  ```
+
+  ```conf Path Values
+  # Paths with tilde expansion
+  outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+  ```
+
+  ```conf Enum Values
+  # Predefined options
+  videoInput = auto
+  videoEncoder = x264
+  videoProfile = high
+  ```
+</CodeGroup>
+
+## Reloading Configuration
+
+When you modify your configuration file, you need to reload ReplaySorcery for the changes to take effect.
+
+### With systemd (Recommended)
+
+If you're running ReplaySorcery as a systemd service:
+
+```bash
+systemctl --user restart replay-sorcery
+```
+
+You can verify the service is running:
+
+```bash
+systemctl --user status replay-sorcery
+```
+
+And view the logs to check for configuration errors:
+
+```bash
+journalctl --user -fu replay-sorcery
+```
+
+### Manual Restart
+
+If you're running ReplaySorcery manually, simply stop the process and restart it:
+
+```bash
+# Stop the current process (Ctrl+C)
+# Then start it again
+replay-sorcery
+```
+
+## Configuration Categories
+
+ReplaySorcery's configuration is organized into several categories:
+
+<CardGroup cols={2}>
+  <Card title="Video Settings" icon="video" href="/configuration/video">
+    Configure video input, recording area, framerate, encoding, and quality
+  </Card>
+  
+  <Card title="Audio Settings" icon="microphone" href="/configuration/audio">
+    Configure audio input, device selection, sample rate, and encoding
+  </Card>
+  
+  <Card title="Controls" icon="keyboard" href="/configuration/controls">
+    Set up keyboard shortcuts and controller backends
+  </Card>
+  
+  <Card title="Output" icon="floppy-disk" href="/configuration/output">
+    Configure output file paths and post-save commands
+  </Card>
+</CardGroup>
+
+## Default Configuration
+
+For a complete reference of all configuration options with their default values, see the [default configuration file](https://github.com/matanui159/ReplaySorcery/blob/master/sys/replay-sorcery.conf) in the source repository.
+
+## General Options
+
+Some configuration options don't fit into specific categories:
+
+<ParamField path="logLevel" type="enum" default="info">
+  The minimum log-level to show in the output.
+  
+  **Possible values:** `trace`, `debug`, `verbose`, `info`, `warning`, `error`, `fatal`, `panic`, `quiet`
+</ParamField>
+
+<ParamField path="traceLevel" type="enum" default="error">
+  The minimum log-level to add stacktraces to.
+  
+  **Possible values:** `trace`, `debug`, `verbose`, `info`, `warning`, `error`, `fatal`, `panic`, `quiet`
+</ParamField>
+
+<ParamField path="recordSeconds" type="integer" default="30">
+  The duration of the recording buffer in seconds. This determines how much of the past can be saved when you press the hotkey.
+  
+  <Warning>
+    Higher values will use more RAM and disk space. Each second of recording uses approximately 1-5 MB depending on your resolution and quality settings.
+  </Warning>
+</ParamField>
+
+## Next Steps
+
+Now that you understand the basics of configuration, explore the specific configuration categories:
+
+- [Video Configuration](/configuration/video) - Set up video capture and encoding
+- [Audio Configuration](/configuration/audio) - Configure audio recording
+- [Controls Configuration](/configuration/controls) - Set up keyboard shortcuts
+- [Output Configuration](/configuration/output) - Customize output files and commands

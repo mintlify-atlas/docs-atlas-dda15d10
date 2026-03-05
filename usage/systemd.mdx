@@ -1,0 +1,415 @@
+---
+title: Systemd Integration
+description: Running ReplaySorcery as a systemd service
+---
+
+ReplaySorcery includes two systemd service files for automatic startup and management:
+
+1. **`replay-sorcery.service`** - User service for the main recording daemon
+2. **`replay-sorcery-kms.service`** - System service for hardware-accelerated capture
+
+## User Service: `replay-sorcery.service`
+
+The main ReplaySorcery daemon runs as a user systemd service, which means:
+- It runs with your user privileges (not root)
+- It starts automatically when you log in
+- Each user has their own instance
+- It can access your home directory and configuration
+
+### Service Configuration
+
+```ini
+[Unit]
+Description=ReplaySorcery: an open-source, instant-replay solution for Linux.
+After=graphical-session.target replay-sorcery-kms.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/replay-sorcery
+TimeoutStopSec=60
+Restart=always
+
+[Install]
+WantedBy=graphical-session.target
+```
+
+**Key Settings:**
+
+- **`After=graphical-session.target`**: Ensures the graphical environment is ready before starting
+- **`After=replay-sorcery-kms.service`**: If using KMS, waits for the hardware service to be available
+- **`Type=simple`**: Service is ready immediately after the process starts
+- **`Restart=always`**: Automatically restarts if the process crashes
+- **`TimeoutStopSec=60`**: Allows up to 60 seconds for graceful shutdown (important if saving a replay during shutdown)
+
+### Enabling the Service
+
+Enable and start the service:
+
+```bash
+systemctl --user enable --now replay-sorcery
+```
+
+This command:
+- **Enables**: Creates symlinks so the service starts on login
+- **Starts**: Immediately starts the service
+
+<Info>
+The `--user` flag is required because this is a user service, not a system service.
+</Info>
+
+### Managing the Service
+
+<Tabs>
+  <Tab title="Status">
+    Check if the service is running:
+
+    ```bash
+    systemctl --user status replay-sorcery
+    ```
+
+    Output shows:
+    - Active/inactive status
+    - Process ID
+    - Recent log messages
+    - Memory usage
+  </Tab>
+  <Tab title="Start/Stop">
+    Start the service:
+
+    ```bash
+    systemctl --user start replay-sorcery
+    ```
+
+    Stop the service:
+
+    ```bash
+    systemctl --user stop replay-sorcery
+    ```
+  </Tab>
+  <Tab title="Restart">
+    Restart the service (required after config changes):
+
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+
+    <Warning>
+    Restarting clears the circular buffer. Any unsaved replays are lost.
+    </Warning>
+  </Tab>
+  <Tab title="Disable">
+    Disable automatic startup:
+
+    ```bash
+    systemctl --user disable replay-sorcery
+    ```
+
+    This only prevents automatic startup on login. To stop the currently running service:
+
+    ```bash
+    systemctl --user disable --now replay-sorcery
+    ```
+  </Tab>
+</Tabs>
+
+### Viewing Logs
+
+View real-time logs:
+
+```bash
+journalctl --user -fu replay-sorcery
+```
+
+**Flags:**
+- `-f`: Follow mode (like `tail -f`)
+- `-u replay-sorcery`: Only show logs for this service
+- `--user`: Use user journal
+
+**View recent logs without following:**
+
+```bash
+journalctl --user -u replay-sorcery -n 50
+```
+
+Shows the last 50 log lines.
+
+**View logs since a specific time:**
+
+```bash
+journalctl --user -u replay-sorcery --since "1 hour ago"
+```
+
+<Note>
+Logs include FFmpeg output, device information, encoding details, and any errors or warnings.
+</Note>
+
+### Configuration Changes
+
+After modifying `~/.config/replay-sorcery.conf`, restart the service:
+
+```bash
+systemctl --user restart replay-sorcery
+```
+
+ReplaySorcery reads the configuration file only at startup.
+
+## System Service: `replay-sorcery-kms.service`
+
+The KMS service provides hardware-accelerated capture to user processes. It runs with root privileges to access KMS devices.
+
+### Service Configuration
+
+```ini
+[Unit]
+Description=ReplaySorcery KMS service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/replay-sorcery kms-service
+TimeoutStopSec=60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Key Differences from User Service:**
+
+- **`WantedBy=multi-user.target`**: Starts early in boot process, before graphical sessions
+- Runs as root (system service)
+- No `After=graphical-session.target` dependency
+- Single instance serves all users
+
+### When to Use KMS Service
+
+Enable the KMS service if:
+- You want hardware-accelerated capture
+- You're using Wayland (X11 capture may not work)
+- You need better performance with lower CPU usage
+- You have Intel/AMD graphics with VA-API support
+
+<Warning>
+The KMS service is not needed for:
+- Software X11 capture
+- NVIDIA GPUs with proprietary drivers (not supported)
+</Warning>
+
+### Enabling the KMS Service
+
+Enable and start the system service:
+
+```bash
+sudo systemctl enable --now replay-sorcery-kms
+```
+
+<Info>
+Note the use of `sudo` instead of `--user`. This is a system service requiring root privileges.
+</Info>
+
+### Configuration for KMS
+
+After enabling the KMS service, update your user configuration:
+
+```ini
+# ~/.config/replay-sorcery.conf
+videoInput = kms_service
+videoDevice = auto
+```
+
+Or specify a specific device:
+
+```bash
+replay-sorcery kms-devices
+```
+
+Then use the device identifier:
+
+```ini
+videoInput = kms_service
+videoDevice = card0:32
+```
+
+### Managing the KMS Service
+
+<Tabs>
+  <Tab title="Status">
+    ```bash
+    sudo systemctl status replay-sorcery-kms
+    ```
+
+    Shows the service status and recent logs.
+  </Tab>
+  <Tab title="Start/Stop">
+    Start:
+    ```bash
+    sudo systemctl start replay-sorcery-kms
+    ```
+
+    Stop:
+    ```bash
+    sudo systemctl stop replay-sorcery-kms
+    ```
+  </Tab>
+  <Tab title="Restart">
+    Restart if configuration changes or after system updates:
+
+    ```bash
+    sudo systemctl restart replay-sorcery-kms
+    ```
+
+    <Note>
+    Restarting the KMS service will disconnect active user sessions. They will automatically reconnect if `Restart=always` is set.
+    </Note>
+  </Tab>
+  <Tab title="Disable">
+    Disable the KMS service:
+
+    ```bash
+    sudo systemctl disable --now replay-sorcery-kms
+    ```
+
+    You'll need to use software capture or direct KMS access instead.
+  </Tab>
+</Tabs>
+
+### Viewing KMS Logs
+
+View system logs for the KMS service:
+
+```bash
+journalctl -fu replay-sorcery-kms
+```
+
+**Note:** No `--user` flag since this is a system service.
+
+**Common log messages:**
+
+```
+Framerate = 30, Device = card0:32
+```
+
+Indicates a user connected and requested capture from a specific device.
+
+```
+Disconnected: [error]
+```
+
+Indicates a client disconnected (normal when user stops their service).
+
+## Troubleshooting
+
+### Service Won't Start
+
+Check for errors:
+
+```bash
+systemctl --user status replay-sorcery
+journalctl --user -u replay-sorcery -n 50
+```
+
+Common issues:
+- Configuration file syntax errors
+- Missing dependencies (FFmpeg, PulseAudio)
+- Device permission problems
+- Conflicting processes using video devices
+
+### KMS Service Connection Failed
+
+If the user service can't connect to KMS service:
+
+1. Verify KMS service is running:
+   ```bash
+   sudo systemctl status replay-sorcery-kms
+   ```
+
+2. Check socket permissions:
+   ```bash
+   ls -la /var/run/replay-sorcery-*
+   ```
+
+3. Verify device configuration:
+   ```bash
+   replay-sorcery kms-devices
+   ```
+
+### Service Crashes Immediately
+
+If the service starts but immediately exits:
+
+1. Check for configuration errors
+2. Verify video device availability
+3. Test manual execution:
+   ```bash
+   /usr/local/bin/replay-sorcery
+   ```
+
+4. Review full logs:
+   ```bash
+   journalctl --user -u replay-sorcery --since "10 minutes ago"
+   ```
+
+### Audio Not Recording
+
+If only video is being saved:
+
+1. Check if PulseAudio is running:
+   ```bash
+   pactl info
+   ```
+
+2. Verify audio device:
+   ```bash
+   pactl list sources
+   ```
+
+3. Check ReplaySorcery logs for audio errors:
+   ```bash
+   journalctl --user -u replay-sorcery | grep -i audio
+   ```
+
+<Info>
+ReplaySorcery will continue recording video-only if audio initialization fails. This is by design to ensure core functionality works even without audio.
+</Info>
+
+## Service Coordination
+
+When using both services:
+
+```
+replay-sorcery-kms.service (system, root)
+         ↓ provides hardware access
+replay-sorcery.service (user, your account)
+         ↓ captures and encodes
+    circular buffer in memory
+         ↓ on save command
+    video file on disk
+```
+
+The user service:
+- Connects to KMS service via Unix socket
+- Requests frame capture
+- Receives DRM file descriptors
+- Encodes frames
+- Manages circular buffer
+- Writes output files
+
+The system service:
+- Opens KMS devices with root privileges
+- Captures raw frames
+- Sends frame data to user service
+- Handles multiple simultaneous user connections
+
+## Best Practices
+
+1. **Always use systemd for production**: Don't run ReplaySorcery manually in a terminal for daily use
+2. **Enable both services if using hardware acceleration**: User service depends on system service
+3. **Check logs regularly**: Monitor for warnings or errors
+4. **Restart after configuration changes**: Changes don't apply until restart
+5. **Test configuration before enabling**: Run manually first to catch configuration errors
+
+## Next Steps
+
+- Configure [keyboard shortcuts](/configuration/controls) for saving replays
+- Adjust [video quality settings](/configuration/video) for better performance
+- Set up [audio capture](/configuration/audio) from the correct device
+- Learn about [available commands](/usage/commands)

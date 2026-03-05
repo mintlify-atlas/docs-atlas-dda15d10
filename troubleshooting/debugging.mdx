@@ -1,0 +1,535 @@
+---
+title: Debugging Guide
+description: Learn how to enable debug logging and troubleshoot ReplaySorcery issues
+---
+
+This guide will help you diagnose and report issues with ReplaySorcery by collecting detailed logs and testing your configuration.
+
+## Enabling Debug Logging
+
+ReplaySorcery supports multiple log levels for different levels of verbosity. The log levels are controlled by two configuration options: `logLevel` and `traceLevel`.
+
+### Log Levels
+
+Edit `~/.config/replay-sorcery.conf` and add the following:
+
+```conf
+# The minimum log-level to show
+# Possible values: trace, debug, verbose, info, warning, error, fatal, panic, quiet
+logLevel = debug
+
+# The minimum log-level to add stacktraces to
+# Possible values: trace, debug, verbose, info, warning, error, fatal, panic, quiet
+traceLevel = error
+```
+
+**Available log levels** (from most to least verbose):
+
+- **trace**: Extremely detailed output, traces every function call
+- **debug**: Detailed debugging information
+- **verbose**: Verbose informational messages
+- **info**: Normal informational messages (default)
+- **warning**: Warning messages for potential issues
+- **error**: Error messages for failures
+- **fatal**: Fatal errors that cause termination
+- **panic**: Critical system panic messages
+- **quiet**: No output
+
+<Note>
+  The default configuration uses `logLevel = info` and `traceLevel = error`, which provides a good balance between useful information and log size.
+</Note>
+
+### When to Use Each Log Level
+
+<AccordionGroup>
+  <Accordion title="info (Default)">
+    **Use for**: Normal operation
+
+    ```conf
+    logLevel = info
+    ```
+
+    Shows important events like:
+    - Service startup and shutdown
+    - Video saves
+    - Configuration loading
+  </Accordion>
+
+  <Accordion title="debug">
+    **Use for**: Troubleshooting issues
+
+    ```conf
+    logLevel = debug
+    ```
+
+    Shows additional information like:
+    - Frame encoding details
+    - Audio/video device initialization
+    - Buffer management
+    - Configuration parsing
+  </Accordion>
+
+  <Accordion title="trace">
+    **Use for**: Deep debugging or bug reports
+
+    ```conf
+    logLevel = trace
+    ```
+
+    Shows extremely detailed information:
+    - Every function call
+    - Memory operations
+    - Low-level FFmpeg operations
+    - Frame processing details
+
+    <Warning>
+      Trace level generates a very large amount of output and may impact performance. Only use when necessary for debugging.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="verbose">
+    **Use for**: More detail than info, less than debug
+
+    ```conf
+    logLevel = verbose
+    ```
+
+    A middle ground for extended information without full debug output.
+  </Accordion>
+</AccordionGroup>
+
+### Stack Traces
+
+The `traceLevel` option controls when stack traces are added to log messages. Stack traces help identify where in the code an error occurred.
+
+```conf
+# Add stack traces to errors and above
+traceLevel = error
+
+# Add stack traces to warnings and above
+traceLevel = warning
+
+# Add stack traces to everything (very verbose)
+traceLevel = trace
+```
+
+**Recommended settings for bug reports:**
+
+```conf
+logLevel = debug
+traceLevel = error
+```
+
+## Viewing Logs
+
+ReplaySorcery runs as a systemd user service, so logs are managed by systemd's journal.
+
+### View Live Logs
+
+Follow logs in real-time:
+
+```bash
+journalctl --user -fu replay-sorcery
+```
+
+Press `Ctrl+C` to stop following.
+
+### View Recent Logs
+
+View the last 50 lines:
+
+```bash
+journalctl --user -eu replay-sorcery -n 50
+```
+
+View the last 100 lines:
+
+```bash
+journalctl --user -eu replay-sorcery -n 100
+```
+
+### Save Logs to File
+
+For bug reports, save logs to a file:
+
+```bash
+journalctl --user -eu replay-sorcery -n 100 > replay-sorcery.log
+```
+
+### View Logs Since Last Boot
+
+```bash
+journalctl --user -eu replay-sorcery -b
+```
+
+### View Logs for Specific Time Range
+
+```bash
+# Logs from the last hour
+journalctl --user -u replay-sorcery --since "1 hour ago"
+
+# Logs from today
+journalctl --user -u replay-sorcery --since today
+
+# Logs between specific times
+journalctl --user -u replay-sorcery --since "2026-03-05 10:00:00" --until "2026-03-05 11:00:00"
+```
+
+## Understanding Log Output
+
+ReplaySorcery uses FFmpeg's logging system. Log messages typically look like:
+
+```log
+[replay-sorcery] info: ReplaySorcery v0.6.0
+[replay-sorcery] info: Loading configuration from /home/user/.config/replay-sorcery.conf
+[h264 @ 0x7f8b4c000b80] info: Using 8 threads for encoding
+[replay-sorcery] debug: Video input initialized: x11
+[replay-sorcery] debug: Audio input initialized: pulse
+```
+
+**Log message format:**
+
+```
+[component] level: message
+```
+
+- **component**: The module generating the log (e.g., `replay-sorcery`, `h264`, `pulse`)
+- **level**: The log level (trace, debug, info, warning, error, etc.)
+- **message**: The log message
+
+### Common Log Patterns
+
+<AccordionGroup>
+  <Accordion title="Successful startup">
+    ```log
+    [replay-sorcery] info: ReplaySorcery v0.6.0
+    [replay-sorcery] info: Loading configuration
+    [replay-sorcery] info: Video input: x11
+    [replay-sorcery] info: Audio input: pulse
+    [replay-sorcery] info: Controller: x11
+    [replay-sorcery] info: Press Ctrl+Super+R to save
+    ```
+  </Accordion>
+
+  <Accordion title="Configuration errors">
+    ```log
+    [replay-sorcery] error: Failed to parse configuration
+    [replay-sorcery] error: Invalid value for option 'videoQuality'
+    ```
+
+    **Solution**: Check your configuration file for syntax errors.
+  </Accordion>
+
+  <Accordion title="Encoder errors">
+    ```log
+    [h264 @ 0x...] error: Cannot load libx264
+    [replay-sorcery] error: Failed to initialize encoder
+    ```
+
+    **Solution**: Install the required encoder (e.g., `libx264`, `libx265`).
+  </Accordion>
+
+  <Accordion title="Permission errors">
+    ```log
+    [replay-sorcery] error: Failed to open device /dev/dri/card0: Permission denied
+    ```
+
+    **Solution**: Ensure you're in the `video` group or use the KMS service.
+  </Accordion>
+
+  <Accordion title="Audio errors">
+    ```log
+    [pulse @ 0x...] error: Failed to connect to PulseAudio
+    ```
+
+    **Solution**: Ensure PulseAudio is running: `pactl info`
+  </Accordion>
+</AccordionGroup>
+
+## Checking Service Status
+
+View the current status of the ReplaySorcery service:
+
+```bash
+systemctl --user status replay-sorcery
+```
+
+Expected output for a running service:
+
+```
+● replay-sorcery.service - ReplaySorcery instant replay service
+     Loaded: loaded (/usr/lib/systemd/user/replay-sorcery.service; enabled)
+     Active: active (running) since Thu 2026-03-05 10:00:00 UTC; 1h ago
+   Main PID: 12345 (replay-sorcery)
+```
+
+### Service Commands
+
+```bash
+# Start the service
+systemctl --user start replay-sorcery
+
+# Stop the service
+systemctl --user stop replay-sorcery
+
+# Restart the service (after configuration changes)
+systemctl --user restart replay-sorcery
+
+# Enable the service to start on boot
+systemctl --user enable replay-sorcery
+
+# Disable the service
+systemctl --user disable replay-sorcery
+
+# Check if the service is enabled
+systemctl --user is-enabled replay-sorcery
+```
+
+### KMS Service Status
+
+If you're using hardware acceleration, check the KMS service:
+
+```bash
+sudo systemctl status replay-sorcery-kms
+```
+
+View KMS logs:
+
+```bash
+sudo journalctl -u replay-sorcery-kms -n 50
+```
+
+## Testing Your Configuration
+
+Before restarting the service, you can test your configuration.
+
+### Validate Configuration File
+
+Check your configuration file for syntax errors:
+
+```bash
+cat ~/.config/replay-sorcery.conf
+```
+
+Ensure:
+- No typos in option names
+- Valid values for each option
+- Proper formatting (e.g., `option = value`)
+
+### Test Video Input
+
+List available KMS devices:
+
+```bash
+replay-sorcery kms-devices
+```
+
+### Test Audio Input
+
+List available PulseAudio sources:
+
+```bash
+pactl list sources short
+```
+
+### Dry Run
+
+Restart the service with debug logging and watch for errors:
+
+1. Enable debug logging in `~/.config/replay-sorcery.conf`:
+
+```conf
+logLevel = debug
+```
+
+2. Restart the service:
+
+```bash
+systemctl --user restart replay-sorcery
+```
+
+3. Watch the logs:
+
+```bash
+journalctl --user -fu replay-sorcery
+```
+
+4. Look for any errors during initialization
+
+### Test Recording
+
+Once the service is running:
+
+1. Press your configured hotkey (default: `Ctrl+Super+R`)
+2. Watch the logs for save messages
+3. Check the output directory:
+
+```bash
+ls -lh ~/Videos/ReplaySorcery/
+```
+
+4. Play the video to verify quality:
+
+```bash
+mpv ~/Videos/ReplaySorcery/$(ls -t ~/Videos/ReplaySorcery/ | head -1)
+```
+
+## Reporting Bugs
+
+If you've followed the troubleshooting steps and still have issues, you can report a bug on GitHub.
+
+### Before Reporting
+
+1. Search existing issues to see if your problem is already reported
+2. Collect all relevant information (see below)
+3. Test with default configuration if possible
+
+### Information to Include
+
+**System Information:**
+
+```bash
+# Distribution and version
+cat /etc/os-release
+
+# Desktop environment
+echo $XDG_CURRENT_DESKTOP
+
+# Window manager
+wmctrl -m
+
+# CPU
+lscpu | grep "Model name"
+
+# GPU
+lspci | grep -E "VGA|3D"
+```
+
+**Configuration Files:**
+
+Attach your configuration files:
+- Global: `/usr/local/etc/replay-sorcery.conf` (or `/usr/etc/replay-sorcery.conf` on Arch)
+- Local: `~/.config/replay-sorcery.conf`
+
+**Logs:**
+
+Collect logs with debug level enabled:
+
+```bash
+# Enable debug logging
+echo "logLevel = debug" >> ~/.config/replay-sorcery.conf
+echo "traceLevel = error" >> ~/.config/replay-sorcery.conf
+
+# Restart service
+systemctl --user restart replay-sorcery
+
+# Save logs
+journalctl --user -eu replay-sorcery -n 100 > replay-sorcery.log
+```
+
+If using KMS, also collect:
+
+```bash
+sudo journalctl -u replay-sorcery-kms -n 100 > replay-sorcery-kms.log
+```
+
+### Where to Report
+
+Report issues on the GitHub repository:
+
+**GitHub Issues**: [github.com/matanui159/ReplaySorcery/issues](https://github.com/matanui159/ReplaySorcery/issues)
+
+### Bug Report Template
+
+```markdown
+**Describe the bug**
+A clear and concise description of what the bug is.
+
+**Desktop:**
+- Distro: [e.g. Fedora 32]
+- Desktop Environment: [e.g. GNOME]
+- Window Manager: [e.g. Mutter]
+- CPU: [e.g. AMD Ryzen 1500X]
+- GPU: [e.g. AMD Radeon 5700 XT]
+
+**Configuration:**
+Attach your configuration files.
+
+**Logs:**
+Attach output from:
+journalctl --user -eu replay-sorcery -n 100 > replay-sorcery.log
+
+**Steps to reproduce:**
+1. ...
+2. ...
+3. ...
+```
+
+<Note>
+  Remember to remove any sensitive information from configuration files and logs before sharing them publicly.
+</Note>
+
+## Advanced Debugging
+
+For developers or advanced users debugging specific issues.
+
+### Running ReplaySorcery Directly
+
+Stop the systemd service and run ReplaySorcery directly:
+
+```bash
+systemctl --user stop replay-sorcery
+replay-sorcery
+```
+
+This allows you to see output directly in your terminal.
+
+### Using GDB
+
+Debug with GDB for crashes:
+
+```bash
+gdb replay-sorcery
+(gdb) run
+# Reproduce the crash
+(gdb) backtrace
+```
+
+### Checking Dependencies
+
+Verify all dependencies are installed:
+
+```bash
+# Check FFmpeg
+ffmpeg -version
+
+# Check for X11 libraries
+pkg-config --modversion x11 xcb
+
+# Check for PulseAudio
+pkg-config --modversion libpulse
+
+# Check for libdrm
+pkg-config --modversion libdrm
+```
+
+### Environment Variables
+
+Some FFmpeg environment variables can help with debugging:
+
+```bash
+# Enable FFmpeg debug output
+export AV_LOG_FORCE_COLOR=1
+export FFREPORT=file=ffreport.log:level=32
+
+systemctl --user restart replay-sorcery
+```
+
+## Getting Help
+
+If you need additional help:
+
+- Review the [Common Issues guide](/troubleshooting/common-issues)
+- Check the [Configuration reference](/configuration/overview)
+- Search [GitHub Issues](https://github.com/matanui159/ReplaySorcery/issues)
+- Open a new GitHub issue with detailed information

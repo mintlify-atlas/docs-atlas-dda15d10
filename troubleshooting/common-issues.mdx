@@ -1,0 +1,458 @@
+---
+title: Common Issues
+description: Solutions to frequently encountered problems with ReplaySorcery
+---
+
+This guide covers common issues you may encounter when using ReplaySorcery and their solutions.
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="Service won't start or crashes immediately">
+    First, check the service status:
+
+    ```bash
+    systemctl --user status replay-sorcery
+    ```
+
+    View recent logs to identify the error:
+
+    ```bash
+    journalctl --user -eu replay-sorcery -n 50
+    ```
+
+    **Common causes:**
+
+    - **Missing dependencies**: Ensure FFmpeg, X11 libraries (for X11), or PulseAudio (for audio) are installed
+    - **Invalid configuration**: Check your `~/.config/replay-sorcery.conf` for syntax errors
+    - **Permission issues**: Ensure the output directory exists and is writable:
+
+    ```bash
+    mkdir -p ~/Videos/ReplaySorcery
+    chmod 755 ~/Videos/ReplaySorcery
+    ```
+
+    - **Conflicting processes**: Make sure no other screen recording software is running
+
+    <Note>
+      After fixing configuration issues, restart the service:
+      ```bash
+      systemctl --user restart replay-sorcery
+      ```
+    </Note>
+  </Accordion>
+
+  <Accordion title="Keybinding (Ctrl+Super+R) not working">
+    The default keybinding `Ctrl+Super+R` may not work in certain environments.
+
+    **For X11 users:**
+
+    Verify the controller is set to X11 in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    controller = x11
+    ```
+
+    Check if another application is using the same keybinding.
+
+    **For Wayland users:**
+
+    <Warning>
+      Wayland does not allow applications to listen to global keyboard events. You must use the command controller method.
+    </Warning>
+
+    Set the controller to command mode in your configuration:
+
+    ```conf
+    controller = command
+    ```
+
+    Then configure your window manager or desktop environment to bind a key to:
+
+    ```bash
+    replay-sorcery save
+    ```
+
+    **Custom keybindings:**
+
+    You can change the keybinding in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    # Key to press (default: r)
+    keyName = r
+    # Modifiers: ctrl, shift, alt, super
+    keyMods = ctrl+super
+    ```
+
+    After changing, restart the service:
+
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+  </Accordion>
+
+  <Accordion title="No video is saved when pressing the hotkey">
+    Check if the output directory exists and is writable:
+
+    ```bash
+    ls -ld ~/Videos/ReplaySorcery
+    ```
+
+    If it doesn't exist, create it:
+
+    ```bash
+    mkdir -p ~/Videos/ReplaySorcery
+    ```
+
+    Verify the output path in your configuration (`~/.config/replay-sorcery.conf`):
+
+    ```conf
+    outputFile = ~/Videos/ReplaySorcery/%F_%H-%M-%S.mp4
+    ```
+
+    Check the logs for errors:
+
+    ```bash
+    journalctl --user -fu replay-sorcery
+    ```
+
+    Then press the hotkey and observe the output.
+
+    **Common issues:**
+
+    - Insufficient disk space
+    - Incorrect file path permissions
+    - Encoder failures (check logs for FFmpeg errors)
+  </Accordion>
+
+  <Accordion title="Audio is not being recorded">
+    ReplaySorcery uses PulseAudio for audio recording.
+
+    **Check if PulseAudio is running:**
+
+    ```bash
+    pactl info
+    ```
+
+    **Verify audio configuration:**
+
+    Edit `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    # Enable audio recording
+    audioInput = pulse
+    # Use system default or specify a device
+    audioDevice = auto
+    ```
+
+    **List available audio sources:**
+
+    ```bash
+    pactl list sources
+    ```
+
+    Set a specific source in your configuration:
+
+    ```conf
+    audioDevice = alsa_output.pci-0000_00_1f.3.analog-stereo.monitor
+    ```
+
+    **Install PulseAudio if missing:**
+
+    ```bash
+    # Debian/Ubuntu
+    sudo apt install pulseaudio libpulse-dev
+
+    # Arch Linux
+    sudo pacman -S pulseaudio
+
+    # Fedora
+    sudo dnf install pulseaudio pulseaudio-libs-devel
+    ```
+
+    After configuration changes, restart the service:
+
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+  </Accordion>
+
+  <Accordion title="Poor video quality or large file sizes">
+    Adjust video encoding settings in `~/.config/replay-sorcery.conf`:
+
+    **For better quality (larger files):**
+
+    ```conf
+    # Lower quality value = better quality (1-51)
+    videoQuality = 23
+    # Use a slower preset for better compression
+    videoPreset = medium
+    ```
+
+    **For smaller files (lower quality):**
+
+    ```conf
+    # Higher quality value = smaller files
+    videoQuality = 32
+    # Use faster preset
+    videoPreset = fast
+    ```
+
+    **Use hardware acceleration:**
+
+    Hardware encoding can improve performance and reduce file sizes. See the [Hardware Acceleration guide](/advanced/hardware-acceleration) for setup.
+
+    ```conf
+    videoInput = hwaccel
+    videoEncoder = vaapi_h264
+    ```
+
+    **Adjust resolution:**
+
+    Scale down the video if recording at high resolution:
+
+    ```conf
+    scaleWidth = 1920
+    scaleHeight = 1080
+    ```
+
+    **Set a specific bitrate:**
+
+    ```conf
+    videoBitrate = 5M
+    ```
+  </Accordion>
+
+  <Accordion title="High CPU usage while running">
+    ReplaySorcery is designed to minimize CPU usage, but software encoding can be intensive.
+
+    **Enable hardware acceleration:**
+
+    The most effective solution is to use hardware-accelerated encoding:
+
+    1. Start the KMS service:
+
+    ```bash
+    sudo systemctl enable --now replay-sorcery-kms
+    ```
+
+    2. Configure hardware acceleration in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    videoInput = kms_service
+    videoEncoder = vaapi_h264
+    ```
+
+    3. Restart the user service:
+
+    ```bash
+    systemctl --user restart replay-sorcery
+    ```
+
+    **Reduce video quality:**
+
+    ```conf
+    videoQuality = 28
+    videoPreset = fast
+    videoFramerate = 30
+    ```
+
+    **Lower resolution:**
+
+    ```conf
+    scaleWidth = 1280
+    scaleHeight = 720
+    ```
+
+    <Note>
+      Hardware acceleration requires root permissions via the `replay-sorcery-kms` service.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Wayland compatibility issues">
+    Wayland support in ReplaySorcery has limitations due to Wayland's security model.
+
+    **Screen recording:**
+
+    <Warning>
+      Wayland screen grabbing is not currently supported for software recording. You must use hardware-accelerated screen grabbing.
+    </Warning>
+
+    **Setup for Wayland:**
+
+    1. Enable the KMS service for hardware acceleration:
+
+    ```bash
+    sudo systemctl enable --now replay-sorcery-kms
+    ```
+
+    2. Configure hardware input in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    videoInput = kms_service
+    ```
+
+    3. Use command controller for keybindings:
+
+    ```conf
+    controller = command
+    ```
+
+    4. Set up a keybinding in your window manager to run:
+
+    ```bash
+    replay-sorcery save
+    ```
+
+    **Supported Wayland compositors:**
+
+    - GNOME Shell (with KMS)
+    - KDE Plasma (with KMS)
+    - Sway (with KMS)
+
+    See the [Wayland Setup guide](/advanced/wayland) for detailed instructions.
+  </Accordion>
+
+  <Accordion title="NVIDIA driver issues">
+    NVIDIA GPU support depends on the driver being used.
+
+    **Proprietary NVIDIA drivers:**
+
+    <Warning>
+      The proprietary NVIDIA drivers do not support VA-API, which is required for hardware acceleration in ReplaySorcery.
+    </Warning>
+
+    **Workarounds:**
+
+    - Use software encoding (CPU-based):
+
+    ```conf
+    videoInput = x11
+    videoEncoder = x264
+    ```
+
+    - Wait for potential NVENC support in future releases
+
+    **Nouveau drivers (open source):**
+
+    The open-source Nouveau drivers support VA-API and work with ReplaySorcery:
+
+    ```conf
+    videoInput = kms_service
+    videoEncoder = vaapi_h264
+    ```
+
+    **Check your driver:**
+
+    ```bash
+    lspci -k | grep -A 2 -E "VGA|3D"
+    ```
+
+    <Note>
+      Software encoding (x264) is always available and works on all systems, though it uses more CPU.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Permission errors with KMS">
+    The KMS service requires root permissions to access hardware devices.
+
+    **Check KMS service status:**
+
+    ```bash
+    sudo systemctl status replay-sorcery-kms
+    ```
+
+    **Start the KMS service:**
+
+    ```bash
+    sudo systemctl enable --now replay-sorcery-kms
+    ```
+
+    **Verify KMS devices are accessible:**
+
+    List available KMS devices:
+
+    ```bash
+    replay-sorcery kms-devices
+    ```
+
+    **Configure the device:**
+
+    If you have multiple GPUs, specify the device in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    videoInput = kms_service
+    videoDevice = /dev/dri/card0
+    ```
+
+    **Check permissions:**
+
+    Ensure your user is in the `video` group:
+
+    ```bash
+    groups | grep video
+    ```
+
+    If not, add yourself:
+
+    ```bash
+    sudo usermod -aG video $USER
+    ```
+
+    Then log out and log back in.
+
+    **Troubleshoot socket permissions:**
+
+    The KMS service creates a socket. Check its permissions:
+
+    ```bash
+    ls -l /run/replay-sorcery-kms.sock
+    ```
+
+    View KMS service logs:
+
+    ```bash
+    sudo journalctl -u replay-sorcery-kms -n 50
+    ```
+  </Accordion>
+
+  <Accordion title="Videos have wrong timestamps or wrong duration">
+    Check the recording duration setting in `~/.config/replay-sorcery.conf`:
+
+    ```conf
+    # Duration in seconds (default: 30)
+    recordSeconds = 30
+    ```
+
+    Increase the buffer if you need longer recordings:
+
+    ```conf
+    recordSeconds = 60
+    ```
+
+    **Framerate issues:**
+
+    Ensure the framerate matches your display:
+
+    ```conf
+    videoFramerate = 60
+    ```
+
+    **GOP (Group of Pictures) settings:**
+
+    Adjust the IDR frame interval:
+
+    ```conf
+    # Number of frames between keyframes
+    videoGOP = 30
+    ```
+
+    <Note>
+      Longer recording durations use more memory. A 60-second buffer at 1080p60 can use several gigabytes of RAM.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Still Having Issues?
+
+If none of these solutions work, see the [Debugging guide](/troubleshooting/debugging) to collect detailed logs and report a bug.

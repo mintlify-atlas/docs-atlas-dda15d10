@@ -1,0 +1,332 @@
+---
+title: KMS Service
+description: Configure the replay-sorcery-kms system service for hardware-accelerated capture
+---
+
+## Overview
+
+The `replay-sorcery-kms` service is a system-level daemon that provides hardware-accelerated screen capture to user-level ReplaySorcery processes. It runs with root privileges to access KMS devices and communicates with user processes via Unix domain sockets.
+
+<Note>
+This is the **recommended way** to enable hardware acceleration without running ReplaySorcery as root.
+</Note>
+
+## Architecture
+
+The KMS service uses a client-server architecture:
+
+```mermaid
+graph LR
+    A[User Process<br/>replay-sorcery] -->|Unix Socket| B[System Service<br/>replay-sorcery-kms]
+    B -->|DMA-BUF FDs| A
+    B -->|Root Access| C[/dev/dri/cardX]
+    C --> D[GPU Framebuffer]
+```
+
+1. **User Process**: Runs as your regular user, manages recording and encoding
+2. **KMS Service**: Runs as root, captures frames from KMS devices
+3. **Communication**: Unix domain socket at `/run/replay-sorcery-kms-device.sock`
+4. **Frame Transfer**: Zero-copy via DMA-BUF file descriptor passing
+
+## Installation
+
+The KMS service is installed automatically when you build ReplaySorcery:
+
+```bash
+# Build and install ReplaySorcery
+cmake -B bin -DCMAKE_BUILD_TYPE=Release
+make -C bin
+sudo make -C bin install
+```
+
+The service file is installed to:
+- **Systemd**: `/usr/lib/systemd/system/replay-sorcery-kms.service`
+
+## Enabling the Service
+
+Enable and start the system service:
+
+```bash
+# Enable the service to start on boot
+sudo systemctl enable replay-sorcery-kms
+
+# Start the service now
+sudo systemctl start replay-sorcery-kms
+
+# Check service status
+sudo systemctl status replay-sorcery-kms
+```
+
+<Info>
+The service runs continuously in the background, waiting for client connections from ReplaySorcery instances.
+</Info>
+
+## Configuration
+
+### User Configuration
+
+Set `videoInput` in your `~/.config/replay-sorcery.conf`:
+
+```conf
+# Use hardware acceleration via KMS service
+videoInput = hwaccel
+
+# Or explicitly specify KMS service
+videoInput = kms_service
+
+# Specify a KMS device (optional, auto-detects by default)
+videoDevice = auto
+```
+
+### Video Input Options
+
+<Tabs>
+  <Tab title="hwaccel">
+    ```conf
+    videoInput = hwaccel
+    ```
+    - Attempts to use KMS service if available
+    - Falls back to software encoding if service is not running
+    - **Recommended** for most users
+  </Tab>
+  <Tab title="kms_service">
+    ```conf
+    videoInput = kms_service
+    ```
+    - Explicitly requires the KMS service
+    - Fails if service is not available
+    - Best for Wayland systems where X11 is not available
+  </Tab>
+  <Tab title="auto">
+    ```conf
+    videoInput = auto
+    ```
+    - Tries KMS service first
+    - Falls back to X11 on X11 systems
+    - Falls back to software encoding
+  </Tab>
+</Tabs>
+
+## Listing KMS Devices
+
+Use the `kms-devices` command to list available KMS devices:
+
+```bash
+replay-sorcery kms-devices
+```
+
+Example output:
+```
+card0:32: 1920x1080 (connector: HDMI-A-1, in use: yes)
+card0:35: 2560x1440 (connector: DP-1, in use: yes)
+card1:45: (not in use)
+```
+
+### Device Format
+
+KMS devices use the format `cardX:Y`:
+- **cardX**: The DRM card number (e.g., `card0`, `card1`)
+- **Y**: The plane ID for that card (e.g., `32`, `35`)
+
+<Note>
+Planes marked as "in use" are actively displaying content and are good candidates for capture.
+</Note>
+
+### Specifying a Device
+
+To capture from a specific device:
+
+```conf
+# Capture from card0, plane 32
+videoDevice = card0:32
+
+# Capture from card1, plane 45
+videoDevice = card1:45
+
+# Auto-detect (default)
+videoDevice = auto
+```
+
+## Service Management
+
+### Checking Service Status
+
+```bash
+# View service status
+sudo systemctl status replay-sorcery-kms
+
+# View service logs
+sudo journalctl -u replay-sorcery-kms -f
+
+# View recent errors
+sudo journalctl -u replay-sorcery-kms -p err
+```
+
+### Restarting the Service
+
+```bash
+# Restart the service
+sudo systemctl restart replay-sorcery-kms
+
+# Stop the service
+sudo systemctl stop replay-sorcery-kms
+
+# Disable the service
+sudo systemctl disable replay-sorcery-kms
+```
+
+### Service Configuration
+
+The service file (`replay-sorcery-kms.service.in`) has these settings:
+
+```ini
+[Unit]
+Description=ReplaySorcery KMS service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/replay-sorcery kms-service
+TimeoutStopSec=60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+<Info>
+The service automatically restarts if it crashes, ensuring continuous availability for hardware acceleration.
+</Info>
+
+## Troubleshooting
+
+### Service Won't Start
+
+<Warning>
+If the service fails to start, check the system logs for error messages.
+</Warning>
+
+```bash
+# Check detailed error messages
+sudo journalctl -u replay-sorcery-kms -n 50
+
+# Common issues:
+# 1. Binary not found (check installation path)
+# 2. No KMS devices available
+# 3. Permissions issue with /run directory
+```
+
+### Connection Failed
+
+If ReplaySorcery can't connect to the service:
+
+```bash
+# Check if socket exists
+ls -l /run/replay-sorcery-kms-device.sock
+
+# Check if service is running
+sudo systemctl is-active replay-sorcery-kms
+
+# Restart both service and user process
+sudo systemctl restart replay-sorcery-kms
+systemctl --user restart replay-sorcery
+```
+
+### No Devices Found
+
+If `kms-devices` shows no devices:
+
+```bash
+# Check if DRM devices exist
+ls -l /dev/dri/
+
+# Check if you have proper DRM drivers loaded
+lsmod | grep drm
+
+# Install libdrm if missing
+sudo apt install libdrm-dev  # Debian/Ubuntu
+sudo pacman -S libdrm        # Arch
+```
+
+### Permission Denied
+
+The service must run as root to access KMS devices:
+
+```bash
+# Verify service is running as root
+sudo systemctl show -p User replay-sorcery-kms
+
+# Should show: User=root or no User= (defaults to root)
+```
+
+## Security Considerations
+
+<Warning>
+The KMS service runs as root and provides screen capture capabilities. Only run it on trusted systems.
+</Warning>
+
+### Socket Permissions
+
+The Unix domain socket at `/run/replay-sorcery-kms-device.sock` is accessible to all users by default. This allows any user on the system to capture the screen.
+
+### Mitigation Strategies
+
+1. **Trusted Users Only**: Only use on single-user or trusted multi-user systems
+2. **Firewall Rules**: The socket is local-only (not network accessible)
+3. **Monitor Access**: Check service logs for unexpected connections
+
+## Performance Tuning
+
+### Framerate
+
+The service captures at the framerate specified in your config:
+
+```conf
+# Higher framerate = more CPU/GPU usage
+videoFramerate = 30  # Default, good balance
+videoFramerate = 60  # Smoother, more resource intensive
+```
+
+### Multiple Clients
+
+The service can handle multiple client connections, but each client gets its own capture stream:
+
+```bash
+# Each user can run their own ReplaySorcery instance
+systemctl --user start replay-sorcery
+```
+
+## Implementation Details
+
+The KMS service is implemented in these source files:
+- **Service**: `src/command/kmscmd.c` - Main service command
+- **Client**: `src/device/svkmsdev.c` - Client-side device implementation
+- **Direct KMS**: `src/device/kmsdev.c` - Direct KMS access (requires root)
+
+### Communication Protocol
+
+1. Client connects to socket and sends:
+   - Framerate
+   - Device name (or "auto")
+2. Service responds with:
+   - Codec parameters (width, height, format)
+   - DRM device file descriptor
+3. For each frame:
+   - Service sends: PTS (presentation timestamp)
+   - Service sends: DRM frame descriptor with DMA-BUF FDs
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hardware Acceleration" icon="rocket" href="/advanced/hardware-acceleration">
+    Learn more about hardware acceleration
+  </Card>
+  <Card title="Wayland Setup" icon="window-maximize" href="/advanced/wayland">
+    Configure ReplaySorcery for Wayland
+  </Card>
+  <Card title="Encoders" icon="video" href="/advanced/encoders">
+    Choose the best encoder for your system
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

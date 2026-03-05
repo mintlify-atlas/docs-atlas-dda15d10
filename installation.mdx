@@ -1,0 +1,268 @@
+---
+title: Installation
+description: Install ReplaySorcery on your Linux system
+---
+
+## Installation Methods
+
+ReplaySorcery can be installed via your distribution's package manager or built from source. Choose the method that works best for your system.
+
+## Arch Linux (AUR)
+
+### Official Package
+
+The official AUR package is automatically updated from CI:
+
+```bash
+yay -S replay-sorcery
+```
+
+Or using any other AUR helper:
+
+```bash
+paru -S replay-sorcery
+```
+
+<Note>
+  The official `replay-sorcery` package is maintained by [Bennett Hardwick](https://github.com/bennetthardwick) and automatically updated from the project's CI pipeline.
+</Note>
+
+### Development Package
+
+For the latest development version, use the `-git` package:
+
+```bash
+yay -S replay-sorcery-git
+```
+
+<Warning>
+  The `-git` package builds from the latest commit and may contain unstable features or bugs. Use the official package for production use.
+</Warning>
+
+## Building from Source
+
+### Prerequisites
+
+Before building, ensure you have the required dependencies installed.
+
+#### Required Dependencies
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt install git cmake build-essential \
+  libavutil-dev libavformat-dev libavdevice-dev \
+  libavcodec-dev libavfilter-dev
+```
+
+```bash Arch Linux
+sudo pacman -S git cmake base-devel ffmpeg
+```
+
+```bash Fedora
+sudo dnf install git cmake gcc make \
+  ffmpeg-devel
+```
+
+```bash openSUSE
+sudo zypper install git cmake gcc make \
+  ffmpeg-4-libavutil-devel ffmpeg-4-libavformat-devel \
+  ffmpeg-4-libavdevice-devel ffmpeg-4-libavcodec-devel \
+  ffmpeg-4-libavfilter-devel
+```
+</CodeGroup>
+
+**Core requirements:**
+- CMake (build system)
+- C compiler (GCC or Clang)
+- FFmpeg development libraries:
+  - `libavutil`
+  - `libavformat`
+  - `libavdevice`
+  - `libavcodec`
+  - `libavfilter`
+
+#### Optional Dependencies
+
+For full functionality, install these optional dependencies:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt install libx11-dev libxcb1-dev \
+  libpulse-dev libdrm-dev
+```
+
+```bash Arch Linux
+sudo pacman -S libx11 libxcb libpulse libdrm
+```
+
+```bash Fedora
+sudo dnf install libX11-devel libxcb-devel \
+  pulseaudio-libs-devel libdrm-devel
+```
+</CodeGroup>
+
+**Optional dependencies:**
+- **Xlib and xcb**: Required for X11 screen recording and keyboard shortcuts
+- **PulseAudio** (`libpulse`): Required for audio recording
+- **libdrm**: Required for listing KMS devices
+
+<Info>
+  CMake will automatically detect which optional dependencies are available and enable the corresponding features. The build will succeed even if optional dependencies are missing.
+</Info>
+
+### Build Steps
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/matanui159/ReplaySorcery.git
+    cd ReplaySorcery
+    ```
+  </Step>
+
+  <Step title="Initialize submodules">
+    ReplaySorcery uses libbacktrace as a git submodule:
+    ```bash
+    git submodule update --init
+    ```
+    
+    <Note>
+      This step is required as ReplaySorcery depends on libbacktrace for error reporting and stack traces.
+    </Note>
+  </Step>
+
+  <Step title="Configure the build">
+    Create a build directory and configure with CMake:
+    ```bash
+    cmake -B bin -DCMAKE_BUILD_TYPE=Release
+    ```
+    
+    CMake will detect available dependencies and display which features will be enabled.
+    
+    <Info>
+      Use `-DCMAKE_BUILD_TYPE=Release` for optimized builds. For development, use `-DCMAKE_BUILD_TYPE=Debug`.
+    </Info>
+  </Step>
+
+  <Step title="Compile the project">
+    Build ReplaySorcery:
+    ```bash
+    make -C bin
+    ```
+    
+    This will compile the binary and prepare it for installation.
+  </Step>
+
+  <Step title="Install system-wide">
+    Install the binary, configuration file, and systemd services:
+    ```bash
+    sudo make -C bin install
+    ```
+    
+    This will install:
+    - Binary: `/usr/local/bin/replay-sorcery`
+    - Config: `/usr/local/etc/replay-sorcery.conf`
+    - User service: `/usr/lib/systemd/user/replay-sorcery.service`
+    - System service: `/usr/lib/systemd/system/replay-sorcery-kms.service`
+  </Step>
+</Steps>
+
+### Build Configuration Options
+
+Customize your build with these CMake options:
+
+```bash
+# Install to a different prefix (default: /usr/local)
+cmake -B bin -DCMAKE_INSTALL_PREFIX=/usr
+
+# Custom systemd directory (default: /usr/lib/systemd)
+cmake -B bin -DRS_SYSTEMD_DIR=/lib/systemd
+
+# Enable profiling (for development)
+cmake -B bin -DRS_PROFILE=ON
+
+# Treat warnings as errors (for CI)
+cmake -B bin -DRS_WARN_ERROR=ON
+```
+
+## Verifying Installation
+
+After installation, verify that ReplaySorcery is available:
+
+```bash
+replay-sorcery --help
+```
+
+Check available commands:
+
+```bash
+# List KMS devices (for hardware acceleration)
+replay-sorcery kms-devices
+```
+
+<Info>
+  If the command is not found, ensure `/usr/local/bin` (or your custom install prefix) is in your `PATH`.
+</Info>
+
+## Dependency Detection
+
+During the build, CMake will report which features are enabled based on available dependencies:
+
+| Feature | Requires | Status |
+|---------|----------|--------|
+| Posix I/O | Standard C library | Required |
+| Unix Sockets | Standard C library | Required |
+| PThreads | pthread library | Required |
+| X11 Support | libX11, libxcb | Optional |
+| PulseAudio | libpulse | Optional |
+| KMS Support | libdrm | Optional |
+
+<Warning>
+  If X11 support is not detected, keyboard shortcuts will not work. You'll need to use the command interface (`replay-sorcery save`) or enable the KMS service for hardware-accelerated recording.
+</Warning>
+
+## Uninstalling
+
+If you built from source, you can uninstall using:
+
+```bash
+sudo make -C bin uninstall
+```
+
+For AUR installations:
+
+```bash
+yay -R replay-sorcery
+```
+
+## Troubleshooting
+
+### Missing Dependencies
+
+If CMake fails to find required dependencies:
+
+1. Ensure all required development packages are installed
+2. Check that pkg-config can find FFmpeg:
+   ```bash
+   pkg-config --modversion libavutil libavformat libavcodec
+   ```
+3. Try clearing the build directory and reconfiguring:
+   ```bash
+   rm -rf bin
+   cmake -B bin -DCMAKE_BUILD_TYPE=Release
+   ```
+
+### Build Failures
+
+If compilation fails:
+
+1. Update your system packages
+2. Ensure you have a C99-compatible compiler
+3. Check the build output for specific error messages
+4. Verify that submodules are initialized: `git submodule status`
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Now that ReplaySorcery is installed, learn how to use it
+</Card>

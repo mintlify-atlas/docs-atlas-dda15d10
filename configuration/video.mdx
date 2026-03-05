@@ -1,0 +1,322 @@
+---
+title: Video Configuration
+description: Configure video capture, recording area, framerate, encoding, and quality settings
+---
+
+ReplaySorcery provides extensive video configuration options to control how your screen is captured and encoded. This page covers all video-related settings.
+
+## Video Input
+
+<ParamField path="videoInput" type="enum" default="auto">
+  The video input backend to use for video recording.
+  
+  **Possible values:**
+  - `auto` - Automatically detect the best available backend
+  - `hwaccel` - Use hardware-accelerated capture (requires KMS service)
+  - `x11` - Use X11 screen capture (software)
+  - `kms` - Direct KMS capture (requires root)
+  - `kms_service` - Use the KMS service for hardware acceleration
+  
+  <Info>
+    For hardware acceleration without root, use `kms_service` with the replay-sorcery-kms systemd service.
+  </Info>
+</ParamField>
+
+<ParamField path="videoDevice" type="string" default="auto">
+  The name of the input video device to capture from.
+  
+  **Possible values:**
+  - `auto` - Automatically select the default device
+  - A device string (device-specific)
+  
+  <Note>
+    For `kms` and `kms_service` backends, you can list available devices with:
+    ```bash
+    replay-sorcery kms-devices
+    ```
+  </Note>
+</ParamField>
+
+## Recording Area
+
+Define the rectangular area of the screen to record:
+
+<ParamField path="videoX" type="integer" default="0">
+  The X coordinate (horizontal position) of the top-left corner of the recording rectangle, in pixels.
+</ParamField>
+
+<ParamField path="videoY" type="integer" default="0">
+  The Y coordinate (vertical position) of the top-left corner of the recording rectangle, in pixels.
+</ParamField>
+
+<ParamField path="videoWidth" type="integer|auto" default="auto">
+  The width of the recording rectangle in pixels.
+  
+  **Possible values:**
+  - `auto` - Use the full screen width (or remaining width from videoX)
+  - A positive integer - Specific width in pixels
+  
+  <Tip>
+    Use `auto` to capture the entire screen, or set specific dimensions to capture a region.
+  </Tip>
+</ParamField>
+
+<ParamField path="videoHeight" type="integer|auto" default="auto">
+  The height of the recording rectangle in pixels.
+  
+  **Possible values:**
+  - `auto` - Use the full screen height (or remaining height from videoY)
+  - A positive integer - Specific height in pixels
+</ParamField>
+
+### Example: Recording a Specific Region
+
+```conf
+# Record a 1920x1080 region starting at coordinates (0, 0)
+videoX = 0
+videoY = 0
+videoWidth = 1920
+videoHeight = 1080
+```
+
+```conf
+# Record the full screen (default)
+videoX = 0
+videoY = 0
+videoWidth = auto
+videoHeight = auto
+```
+
+## Framerate
+
+<ParamField path="videoFramerate" type="integer" default="30">
+  The framerate of the recording in frames per second (FPS).
+  
+  Common values:
+  - `30` - Standard framerate, good balance of smoothness and performance
+  - `60` - High framerate for smooth motion, requires more resources
+  - `120` - Very high framerate for competitive gaming
+  
+  <Warning>
+    Higher framerates require more CPU/GPU power and storage space. Make sure your system can handle the increased load.
+  </Warning>
+</ParamField>
+
+## Video Encoding
+
+<ParamField path="videoEncoder" type="enum" default="auto">
+  The video encoder backend to use for video encoding.
+  
+  **Possible values:**
+  - `auto` - Automatically select the best available encoder
+  - `hevc` - H.265/HEVC encoder (better compression)
+  - `x264` - H.264 software encoder (good compatibility)
+  - `openh264` - Open source H.264 encoder
+  - `x265` - H.265 software encoder
+  - `vaapi_h264` - VA-API hardware H.264 encoder (Intel/AMD)
+  - `vaapi_hevc` - VA-API hardware H.265 encoder (Intel/AMD)
+  
+  <Tip>
+    For hardware acceleration, use `vaapi_h264` or `vaapi_hevc` with compatible GPUs.
+  </Tip>
+</ParamField>
+
+<ParamField path="videoProfile" type="enum" default="baseline">
+  The H.264 profile to use for video encoding.
+  
+  **Possible values:**
+  - `baseline` - Best compatibility, works on all devices
+  - `main` - Good balance of compression and compatibility
+  - `high` - Best compression, requires modern devices
+  
+  <Note>
+    Higher profiles provide better compression but may not be compatible with older devices.
+  </Note>
+</ParamField>
+
+<ParamField path="videoPreset" type="enum" default="fast">
+  A high-level preset for video encoding performance.
+  
+  **Possible values:**
+  - `fast` - Faster encoding, lower CPU usage, slightly larger files
+  - `medium` - Balanced encoding speed and compression
+  - `slow` - Slower encoding, better compression, higher CPU usage
+  
+  <Info>
+    The preset affects encoding speed and compression efficiency. Use `fast` for real-time recording with minimal performance impact.
+  </Info>
+</ParamField>
+
+## Quality and Bitrate
+
+Control the quality and file size of your recordings:
+
+<ParamField path="videoQuality" type="integer|auto" default="28">
+  The quality to use for video encoding. Lower values produce better quality but larger files.
+  
+  **Possible values:**
+  - `1-51` - Quality range (lower is better)
+  - `auto` - Automatically determine quality
+  
+  Recommended values:
+  - `18-23` - High quality
+  - `24-28` - Standard quality (good balance)
+  - `29-35` - Lower quality, smaller files
+  
+  <Warning>
+    Quality settings interact with bitrate. If you set a specific bitrate, quality may be ignored.
+  </Warning>
+</ParamField>
+
+<ParamField path="videoBitrate" type="string|auto" default="auto">
+  The bitrate to use for video encoding.
+  
+  **Possible values:**
+  - `auto` - Automatically calculate bitrate based on quality
+  - A positive integer with SI prefix (e.g., `5M`, `10M`, `2500K`)
+  
+  Examples:
+  - `5M` - 5 megabits per second (1080p standard)
+  - `10M` - 10 megabits per second (1080p high quality)
+  - `20M` - 20 megabits per second (4K)
+  
+  <Tip>
+    For most users, `auto` provides the best balance. Use specific bitrates only if you need precise control over file sizes.
+  </Tip>
+</ParamField>
+
+<ParamField path="videoGOP" type="integer" default="30">
+  The number of frames between IDR (keyframes). GOP stands for "Group of Pictures."
+  
+  Recommended values:
+  - Match your framerate (e.g., `30` for 30fps, `60` for 60fps)
+  - Lower values increase file size but improve seeking
+  - Higher values reduce file size but make seeking slower
+  
+  <Note>
+    A GOP value equal to your framerate means one keyframe per second.
+  </Note>
+</ParamField>
+
+## Scaling
+
+Downscale your recordings to reduce file size and improve performance:
+
+<ParamField path="scaleWidth" type="integer|auto" default="auto">
+  The width to scale the video to during encoding.
+  
+  **Possible values:**
+  - `auto` - No scaling, use original width
+  - A positive integer - Target width in pixels
+  
+  <Tip>
+    Scale down from 1440p to 1080p to reduce file sizes while maintaining good quality:
+    ```conf
+    scaleWidth = 1920
+    scaleHeight = 1080
+    ```
+  </Tip>
+</ParamField>
+
+<ParamField path="scaleHeight" type="integer|auto" default="auto">
+  The height to scale the video to during encoding.
+  
+  **Possible values:**
+  - `auto` - No scaling, use original height
+  - A positive integer - Target height in pixels
+  
+  <Warning>
+    Maintain aspect ratio when scaling. For 16:9 displays:
+    - 1080p: 1920x1080
+    - 720p: 1280x720
+  </Warning>
+</ParamField>
+
+## Configuration Examples
+
+<AccordionGroup>
+  <Accordion title="High Quality 1080p60">
+    ```conf
+    videoInput = auto
+    videoWidth = 1920
+    videoHeight = 1080
+    videoFramerate = 60
+    videoEncoder = x264
+    videoProfile = high
+    videoPreset = medium
+    videoQuality = 20
+    videoGOP = 60
+    ```
+  </Accordion>
+
+  <Accordion title="Balanced Performance">
+    ```conf
+    videoInput = auto
+    videoWidth = auto
+    videoHeight = auto
+    videoFramerate = 30
+    videoEncoder = auto
+    videoProfile = baseline
+    videoPreset = fast
+    videoQuality = 28
+    videoGOP = 30
+    ```
+  </Accordion>
+
+  <Accordion title="Hardware Accelerated">
+    ```conf
+    videoInput = kms_service
+    videoDevice = auto
+    videoWidth = auto
+    videoHeight = auto
+    videoFramerate = 60
+    videoEncoder = vaapi_h264
+    videoProfile = high
+    videoPreset = fast
+    videoQuality = 23
+    videoGOP = 60
+    ```
+  </Accordion>
+
+  <Accordion title="Low Resource Usage">
+    ```conf
+    videoInput = auto
+    videoFramerate = 30
+    videoEncoder = x264
+    videoProfile = baseline
+    videoPreset = fast
+    videoQuality = 30
+    scaleWidth = 1280
+    scaleHeight = 720
+    videoGOP = 30
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="High CPU Usage">
+    Try these settings to reduce CPU load:
+    - Lower `videoFramerate` to 30
+    - Change `videoPreset` to `fast`
+    - Use hardware encoding with `vaapi_h264` if available
+    - Reduce resolution with `scaleWidth` and `scaleHeight`
+  </Accordion>
+
+  <Accordion title="Large File Sizes">
+    Reduce file sizes with:
+    - Increase `videoQuality` value (e.g., 30-32)
+    - Lower `videoFramerate` to 30
+    - Use scaling to reduce resolution
+    - Use HEVC encoder (`hevc` or `vaapi_hevc`) for better compression
+  </Accordion>
+
+  <Accordion title="Poor Quality">
+    Improve quality with:
+    - Decrease `videoQuality` value (e.g., 20-23)
+    - Use `videoProfile = high`
+    - Use `videoPreset = medium` or `slow`
+    - Increase `videoBitrate` (e.g., `10M` for 1080p)
+  </Accordion>
+</AccordionGroup>

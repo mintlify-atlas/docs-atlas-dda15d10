@@ -1,0 +1,329 @@
+---
+title: Audio Configuration
+description: Configure audio recording, device selection, sample rate, and encoding settings
+---
+
+ReplaySorcery can capture audio alongside your screen recordings. This page covers all audio-related configuration options.
+
+## Audio Input
+
+<ParamField path="audioInput" type="enum" default="auto">
+  The audio input backend to use for audio recording.
+  
+  **Possible values:**
+  - `none` - Disable audio recording (video only)
+  - `auto` - Automatically detect and use the best available backend
+  - `pulse` - Use PulseAudio for audio capture
+  
+  <Info>
+    Most Linux systems use PulseAudio or PipeWire (which is PulseAudio-compatible). Using `auto` will detect these automatically.
+  </Info>
+</ParamField>
+
+### Disabling Audio
+
+If you want to record video without audio:
+
+```conf
+audioInput = none
+```
+
+## Audio Device
+
+<ParamField path="audioDevice" type="string" default="auto">
+  The name of the input audio device to record from.
+  
+  **Possible values:**
+  - `auto` - Automatically select the default audio device
+  - `system` - System audio (what you hear)
+  - A device string - Specific PulseAudio source name
+  
+  <Note>
+    For PulseAudio, you can list available audio sources with:
+    ```bash
+    pactl list sources
+    ```
+    Look for the `Name:` field in the output.
+  </Note>
+</ParamField>
+
+### Finding Audio Devices
+
+To find available audio devices on your system:
+
+<CodeGroup>
+  ```bash List PulseAudio Sources
+  pactl list sources
+  ```
+
+  ```bash List Short Format
+  pactl list sources short
+  ```
+</CodeGroup>
+
+Example output:
+```
+0       alsa_output.pci-0000_00_1b.0.analog-stereo.monitor
+1       alsa_input.pci-0000_00_1b.0.analog-stereo
+```
+
+### Capturing Different Audio Sources
+
+<AccordionGroup>
+  <Accordion title="Capture Microphone">
+    To record from your microphone, use a device name that contains `input`:
+    
+    ```conf
+    audioInput = pulse
+    audioDevice = alsa_input.pci-0000_00_1b.0.analog-stereo
+    ```
+  </Accordion>
+
+  <Accordion title="Capture System Audio">
+    To record system audio (what you hear), use a monitor device:
+    
+    ```conf
+    audioInput = pulse
+    audioDevice = alsa_output.pci-0000_00_1b.0.analog-stereo.monitor
+    ```
+    
+    Or simply:
+    ```conf
+    audioInput = pulse
+    audioDevice = system
+    ```
+  </Accordion>
+
+  <Accordion title="Capture Both Microphone and System Audio">
+    To capture both sources, you need to create a combined sink in PulseAudio first:
+    
+    ```bash
+    pactl load-module module-loopback
+    ```
+    
+    Then configure ReplaySorcery to use the combined source.
+  </Accordion>
+</AccordionGroup>
+
+## Sample Rate
+
+<ParamField path="audioSamplerate" type="integer" default="44100">
+  The sample rate to use for audio recording, in Hz.
+  
+  Common values:
+  - `44100` - CD quality, standard for most recordings
+  - `48000` - Professional/video standard
+  - `96000` - High-resolution audio (rarely needed)
+  
+  <Tip>
+    The default value of 44100 Hz provides excellent quality for game recordings and is widely compatible.
+  </Tip>
+</ParamField>
+
+## Audio Encoding
+
+<ParamField path="audioEncoder" type="enum" default="auto">
+  The audio encoder backend to use for audio encoding.
+  
+  **Possible values:**
+  - `auto` - Automatically select the best available encoder
+  - `aac` - Native FFmpeg AAC encoder (good compatibility)
+  - `fdk` - Fraunhofer FDK AAC encoder (higher quality, if available)
+  
+  <Info>
+    The `fdk` encoder provides better quality but may not be available in all FFmpeg builds due to licensing. The `auto` option will use `fdk` if available, otherwise fall back to `aac`.
+  </Info>
+</ParamField>
+
+<ParamField path="audioProfile" type="enum" default="low">
+  The AAC profile to use for audio encoding.
+  
+  **Possible values:**
+  - `low` - AAC-LC (Low Complexity), best compatibility
+  - `main` - AAC Main profile
+  - `high` - HE-AAC (High Efficiency), better compression
+  
+  <Note>
+    AAC-LC (`low`) provides the best compatibility with media players and editing software. Use this unless you have specific requirements.
+  </Note>
+</ParamField>
+
+## Audio Bitrate
+
+<ParamField path="audioBitrate" type="string|auto" default="auto">
+  The bitrate to use for audio encoding.
+  
+  **Possible values:**
+  - `auto` - Automatically calculate bitrate based on sample rate
+  - A positive integer with SI prefix (e.g., `128K`, `192K`, `256K`)
+  
+  Recommended values:
+  - `128K` - Standard quality, suitable for most recordings
+  - `192K` - High quality
+  - `256K` - Very high quality
+  - `320K` - Maximum quality (overkill for most uses)
+  
+  <Tip>
+    For game recordings with voice chat, 128K is usually sufficient. Music-focused content may benefit from 192K or higher.
+  </Tip>
+</ParamField>
+
+### Bitrate Examples
+
+```conf
+# Standard quality
+audioBitrate = 128K
+```
+
+```conf
+# High quality
+audioBitrate = 192K
+```
+
+```conf
+# Automatic (recommended)
+audioBitrate = auto
+```
+
+## Configuration Examples
+
+<AccordionGroup>
+  <Accordion title="Standard Quality (Default)">
+    ```conf
+    audioInput = auto
+    audioDevice = auto
+    audioSamplerate = 44100
+    audioEncoder = auto
+    audioProfile = low
+    audioBitrate = auto
+    ```
+  </Accordion>
+
+  <Accordion title="High Quality Audio">
+    ```conf
+    audioInput = pulse
+    audioDevice = auto
+    audioSamplerate = 48000
+    audioEncoder = fdk
+    audioProfile = low
+    audioBitrate = 192K
+    ```
+  </Accordion>
+
+  <Accordion title="Low Resource Usage">
+    ```conf
+    audioInput = pulse
+    audioDevice = auto
+    audioSamplerate = 44100
+    audioEncoder = aac
+    audioProfile = low
+    audioBitrate = 96K
+    ```
+  </Accordion>
+
+  <Accordion title="No Audio (Video Only)">
+    ```conf
+    audioInput = none
+    ```
+  </Accordion>
+
+  <Accordion title="Specific Microphone">
+    ```conf
+    audioInput = pulse
+    # Replace with your device name from 'pactl list sources'
+    audioDevice = alsa_input.usb-Blue_Microphones_Yeti_Stereo_Microphone_REV8-00.analog-stereo
+    audioSamplerate = 48000
+    audioEncoder = auto
+    audioProfile = low
+    audioBitrate = 192K
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No Audio in Recordings">
+    If your recordings have no audio:
+    
+    1. Check that `audioInput` is not set to `none`
+    2. Verify PulseAudio is running:
+       ```bash
+       pulseaudio --check
+       ```
+    3. List available sources:
+       ```bash
+       pactl list sources short
+       ```
+    4. Test audio recording:
+       ```bash
+       parecord --device=<device-name> test.wav
+       ```
+    5. Check ReplaySorcery logs:
+       ```bash
+       journalctl --user -fu replay-sorcery
+       ```
+  </Accordion>
+
+  <Accordion title="Audio Out of Sync">
+    If audio is out of sync with video:
+    
+    - Ensure `audioSamplerate` matches your system's sample rate
+    - Try using `48000` instead of `44100`
+    - Check that your system isn't under heavy load during recording
+    - Lower video framerate if CPU usage is high
+  </Accordion>
+
+  <Accordion title="Poor Audio Quality">
+    To improve audio quality:
+    
+    - Increase `audioBitrate` to `192K` or higher
+    - Use `audioEncoder = fdk` if available
+    - Increase `audioSamplerate` to `48000`
+    - Check input levels aren't too low or causing clipping
+  </Accordion>
+
+  <Accordion title="Can't Find Audio Device">
+    If your desired audio device isn't listed:
+    
+    1. Make sure the device is connected and recognized:
+       ```bash
+       pactl list sources
+       ```
+    2. For USB devices, try unplugging and reconnecting
+    3. Restart PulseAudio:
+       ```bash
+       pulseaudio --kill
+       pulseaudio --start
+       ```
+    4. Use `auto` to let ReplaySorcery select automatically
+  </Accordion>
+
+  <Accordion title="Audio Device Changed">
+    If you switch audio devices (e.g., plugging in headphones):
+    
+    - Use `audioDevice = auto` to automatically follow the default device
+    - Or restart ReplaySorcery after changing devices:
+      ```bash
+      systemctl --user restart replay-sorcery
+      ```
+  </Accordion>
+</AccordionGroup>
+
+## PipeWire Users
+
+<Info>
+PipeWire provides PulseAudio compatibility, so the `pulse` backend works with PipeWire systems. All the commands above using `pactl` will work with PipeWire.
+</Info>
+
+If you're using PipeWire:
+
+```bash
+# List sources (works with PipeWire)
+pactl list sources short
+
+# Or use PipeWire-specific command
+pw-cli list-objects
+```
+
+The configuration is identical whether you're using PulseAudio or PipeWire.

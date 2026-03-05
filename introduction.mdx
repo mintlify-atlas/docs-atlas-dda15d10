@@ -1,0 +1,125 @@
+---
+title: Introduction
+description: An open-source instant replay solution for Linux
+---
+
+## What is ReplaySorcery?
+
+ReplaySorcery is an open-source, instant-replay solution for Linux that brings functionality similar to AMD ReLive and NVIDIA ShadowPlay to Linux systems. It continuously records your screen in the background without consuming excessive system resources, allowing you to save the last 30 seconds (or more) of footage at the press of a hotkey.
+
+<Note>
+  ReplaySorcery was inspired by the need for instant replay functionality on Linux, similar to what AMD ReLive and NVIDIA ShadowPlay provide on Windows.
+</Note>
+
+## How It Works
+
+### Circular Buffer System
+
+ReplaySorcery uses an efficient **circular buffer** approach to provide instant replay functionality:
+
+1. **Continuous Recording**: Video and audio are continuously captured and encoded in the background
+2. **Buffer Management**: Encoded packets are stored in a circular buffer that maintains a fixed duration (default: 30 seconds)
+3. **Instant Save**: When you press the save hotkey (default: `Ctrl+Super+R`), the buffer contents are written to disk
+4. **Low Overhead**: Only the configured duration is kept in memory, with older frames automatically discarded
+
+This approach ensures minimal resource usage while providing instant access to recent gameplay or screen activity.
+
+## Key Features
+
+### Video Recording
+- **Hardware Acceleration**: Support for KMS-based hardware acceleration on supported systems
+- **Multiple Backends**: X11, KMS, and FFmpeg input backends
+- **Encoder Options**: H.264 and HEVC encoding with multiple encoder backends (x264, x265, OpenH264, VA-API)
+- **Configurable Quality**: Adjustable bitrate, quality, framerate (default: 30 FPS), and resolution
+- **Screen Region Selection**: Record specific portions of your screen
+
+### Audio Recording
+- **PulseAudio Integration**: Capture system audio through PulseAudio
+- **AAC Encoding**: Efficient audio compression with AAC or FDK-AAC
+- **Configurable Samplerate**: Default 44100 Hz, adjustable as needed
+
+### Control & Configuration
+- **Keyboard Shortcuts**: X11-based hotkey detection (default: `Ctrl+Super+R`)
+- **Command Interface**: Trigger saves via command-line for Wayland or custom workflows
+- **Flexible Configuration**: Global and user-level configuration files
+- **Custom Output**: Configurable output location and post-save commands
+
+### System Integration
+- **Systemd Service**: Runs as a user systemd service for automatic startup
+- **Notifications**: Desktop notifications on successful save (via `notify-send`)
+- **Multiple Distributions**: Available in AUR for Arch Linux, or build from source
+
+## System Requirements
+
+### Required Dependencies
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt install cmake libavutil-dev libavformat-dev libavdevice-dev libavcodec-dev libavfilter-dev
+```
+
+```bash Arch Linux
+sudo pacman -S cmake ffmpeg
+```
+
+```bash Fedora
+sudo dnf install cmake ffmpeg-devel
+```
+</CodeGroup>
+
+**Core Requirements:**
+- CMake (for building)
+- FFmpeg libraries:
+  - `libavutil`
+  - `libavformat`
+  - `libavdevice`
+  - `libavcodec`
+  - `libavfilter`
+
+### Optional Dependencies
+
+**For Enhanced Functionality:**
+- **Xlib and xcb**: Software screen recording and keyboard shortcuts on X11
+- **PulseAudio** (`libpulse`): Audio recording support
+- **libdrm**: KMS device listing for hardware acceleration
+
+<Info>
+  Without X11 libraries, you can still use hardware-accelerated recording via KMS, but keyboard shortcuts won't work. Use the command interface instead.
+</Info>
+
+### Platform Support
+
+ReplaySorcery is designed for Linux systems and requires:
+- A Linux distribution with systemd (for service management)
+- X11 or Wayland display server
+- For hardware acceleration: DRM/KMS-compatible graphics drivers
+
+<Warning>
+  Proprietary NVIDIA drivers do not currently support VA-API hardware acceleration. NVIDIA users should use software encoding or the open-source Nouveau drivers. NVENC support is planned for future releases.
+</Warning>
+
+## Performance Characteristics
+
+- **Low CPU Usage**: Efficient encoding with minimal system impact
+- **Hardware Acceleration**: Offload encoding to GPU when available
+- **Configurable Buffer**: Default 30 seconds, adjustable based on your needs
+- **Memory Efficient**: Only configured duration stored in memory
+
+## Use Cases
+
+- **Gaming**: Capture unexpected gameplay moments without recording everything
+- **Bug Reporting**: Save the last few seconds when encountering software issues
+- **Content Creation**: Instantly save interesting screen activity
+- **Tutorials**: Record spontaneous teaching moments
+- **Streaming Backup**: Keep a local replay buffer while streaming
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install ReplaySorcery on your system
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get recording in minutes
+  </Card>
+</CardGroup>

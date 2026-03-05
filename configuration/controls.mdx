@@ -1,0 +1,391 @@
+---
+title: Controls Configuration
+description: Configure keyboard shortcuts and controller backends for saving replays
+---
+
+ReplaySorcery uses configurable keyboard shortcuts to trigger saving replays. This page covers controller backends and keyboard shortcut configuration.
+
+## Controller Backend
+
+<ParamField path="controller" type="enum" default="auto">
+  The controller backend to use for detecting key presses.
+  
+  **Possible values:**
+  - `auto` - Automatically detect the best available backend
+  - `debug` - Debug controller (for testing, always triggers)
+  - `x11` - X11 keyboard listener (requires X11)
+  - `command` - External command trigger (for Wayland and other environments)
+  
+  <Info>
+    On X11 systems, `auto` will use the `x11` backend. For Wayland, you should use `command` and set up a manual keyboard shortcut.
+  </Info>
+</ParamField>
+
+### Controller Backends Explained
+
+<AccordionGroup>
+  <Accordion title="Auto (Recommended)">
+    The `auto` backend automatically detects your environment:
+    
+    - On X11 systems, it uses the `x11` backend for direct keyboard listening
+    - Provides the most seamless experience when available
+    
+    ```conf
+    controller = auto
+    ```
+  </Accordion>
+
+  <Accordion title="X11 Backend">
+    The `x11` backend directly listens for keyboard events using X11 APIs:
+    
+    **Advantages:**
+    - Works automatically without manual setup
+    - Global keyboard shortcuts work from any window
+    - No need to configure window manager shortcuts
+    
+    **Limitations:**
+    - Only works on X11 (not Wayland)
+    - Requires X11 libraries at compile time
+    
+    ```conf
+    controller = x11
+    keyName = r
+    keyMods = ctrl+super
+    ```
+  </Accordion>
+
+  <Accordion title="Command Backend (Wayland)">
+    The `command` backend triggers saves via external commands:
+    
+    **When to use:**
+    - Running on Wayland (required, as Wayland doesn't allow global keyboard listeners)
+    - Want to trigger saves from scripts
+    - Need custom trigger logic
+    
+    **Setup:**
+    1. Set the controller to `command` in your config:
+       ```conf
+       controller = command
+       ```
+    
+    2. Set up a keyboard shortcut in your window manager/desktop environment to run:
+       ```bash
+       replay-sorcery save
+       ```
+    
+    See the [Wayland Setup](#wayland-setup) section below for detailed instructions.
+  </Accordion>
+
+  <Accordion title="Debug Backend">
+    The `debug` backend is for testing purposes:
+    
+    ```conf
+    controller = debug
+    ```
+    
+    <Warning>
+      This will continuously trigger saves. Only use this for debugging ReplaySorcery itself.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard Shortcuts (X11)
+
+When using the X11 controller backend, you can configure the keyboard shortcut:
+
+<ParamField path="keyName" type="string" default="r">
+  The key name to press to save a video.
+  
+  **Examples:**
+  - `r` - The R key
+  - `F9` - Function key F9
+  - `space` - Spacebar
+  - `Return` - Enter key
+  
+  <Note>
+    Key names follow X11 keysym names. Most alphanumeric keys are their lowercase letter. Special keys use their descriptive names.
+  </Note>
+</ParamField>
+
+<ParamField path="keyMods" type="string" default="ctrl+super">
+  The key modifiers (modifier keys that must be held) to trigger the save.
+  
+  **Possible values:** Combination of:
+  - `ctrl` - Control key
+  - `shift` - Shift key
+  - `alt` - Alt key
+  - `super` - Super/Windows/Meta key
+  
+  Multiple modifiers are separated by `+`:
+  
+  ```conf
+  keyMods = ctrl+super      # Ctrl+Super+<key>
+  keyMods = ctrl+shift      # Ctrl+Shift+<key>
+  keyMods = alt             # Alt+<key>
+  keyMods = super           # Super+<key>
+  ```
+  
+  <Tip>
+    Use modifier combinations that don't conflict with existing shortcuts. `Ctrl+Super` is usually safe.
+  </Tip>
+</ParamField>
+
+### Common Keyboard Shortcuts
+
+<CodeGroup>
+  ```conf Default (Ctrl+Super+R)
+  controller = auto
+  keyName = r
+  keyMods = ctrl+super
+  ```
+
+  ```conf F9 with Super
+  controller = auto
+  keyName = F9
+  keyMods = super
+  ```
+
+  ```conf Alt+R
+  controller = auto
+  keyName = r
+  keyMods = alt
+  ```
+
+  ```conf Ctrl+Shift+S
+  controller = auto
+  keyName = s
+  keyMods = ctrl+shift
+  ```
+</CodeGroup>
+
+## Wayland Setup
+
+Wayland doesn't allow applications to listen for global keyboard events for security reasons. You must use the `command` backend and configure shortcuts manually.
+
+### Step 1: Configure ReplaySorcery
+
+Set the controller to `command` in `~/.config/replay-sorcery.conf`:
+
+```conf
+controller = command
+```
+
+Restart ReplaySorcery:
+
+```bash
+systemctl --user restart replay-sorcery
+```
+
+### Step 2: Set Up Keyboard Shortcut
+
+Configure your desktop environment or window manager to run this command:
+
+```bash
+replay-sorcery save
+```
+
+Here's how to do this on popular Wayland compositors:
+
+<AccordionGroup>
+  <Accordion title="GNOME (Wayland)">
+    1. Open Settings → Keyboard → Keyboard Shortcuts
+    2. Scroll down and click "Custom Shortcuts"
+    3. Click the "+" button to add a new shortcut
+    4. Set:
+       - Name: `ReplaySorcery Save`
+       - Command: `replay-sorcery save`
+       - Shortcut: Press your desired key combination (e.g., Ctrl+Super+R)
+  </Accordion>
+
+  <Accordion title="KDE Plasma (Wayland)">
+    1. Open System Settings → Shortcuts → Custom Shortcuts
+    2. Edit → New → Global Shortcut → Command/URL
+    3. In the Trigger tab, set your desired keyboard shortcut
+    4. In the Action tab, set command: `replay-sorcery save`
+    5. Apply the settings
+  </Accordion>
+
+  <Accordion title="Sway">
+    Add to your `~/.config/sway/config`:
+    
+    ```conf
+    bindsym $mod+Ctrl+r exec replay-sorcery save
+    ```
+    
+    Reload Sway:
+    ```bash
+    swaymsg reload
+    ```
+  </Accordion>
+
+  <Accordion title="Hyprland">
+    Add to your `~/.config/hypr/hyprland.conf`:
+    
+    ```conf
+    bind = SUPER CTRL, R, exec, replay-sorcery save
+    ```
+    
+    Reload Hyprland:
+    ```bash
+    hyprctl reload
+    ```
+  </Accordion>
+
+  <Accordion title="River">
+    Add to your `~/.config/river/init`:
+    
+    ```bash
+    riverctl map normal Super+Control R spawn "replay-sorcery save"
+    ```
+    
+    Make the file executable and reload River.
+  </Accordion>
+</AccordionGroup>
+
+## Testing Your Configuration
+
+After configuring your controls, test that they work:
+
+### For X11 Backend
+
+1. Make sure ReplaySorcery is running:
+   ```bash
+   systemctl --user status replay-sorcery
+   ```
+
+2. Press your configured keyboard shortcut (default: Ctrl+Super+R)
+
+3. You should see a notification and a new video file created
+
+### For Command Backend
+
+1. Test the command directly:
+   ```bash
+   replay-sorcery save
+   ```
+
+2. If that works, test your window manager shortcut
+
+3. Check the output:
+   ```bash
+   ls ~/Videos/ReplaySorcery/
+   ```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Shortcut Not Working (X11)">
+    If your keyboard shortcut doesn't trigger saves on X11:
+    
+    1. Check ReplaySorcery is running:
+       ```bash
+       systemctl --user status replay-sorcery
+       ```
+    
+    2. Verify you're using X11 (not Wayland):
+       ```bash
+       echo $XDG_SESSION_TYPE
+       ```
+    
+    3. Check for key conflicts:
+       - Try a different key combination
+       - Check other applications aren't using the same shortcut
+    
+    4. View logs for errors:
+       ```bash
+       journalctl --user -fu replay-sorcery
+       ```
+  </Accordion>
+
+  <Accordion title="Command Backend Not Working">
+    If `replay-sorcery save` doesn't work:
+    
+    1. Verify the command exists:
+       ```bash
+       which replay-sorcery
+       ```
+    
+    2. Check ReplaySorcery is running:
+       ```bash
+       systemctl --user status replay-sorcery
+       ```
+    
+    3. Try running the command in a terminal to see any error messages:
+       ```bash
+       replay-sorcery save
+       ```
+    
+    4. Ensure `controller = command` is set in your config
+  </Accordion>
+
+  <Accordion title="Wayland Shortcut Not Triggering">
+    If your window manager shortcut doesn't work:
+    
+    1. Test the command directly in a terminal first:
+       ```bash
+       replay-sorcery save
+       ```
+    
+    2. Check your window manager's shortcut configuration
+    
+    3. Make sure there are no conflicting shortcuts
+    
+    4. Try using the full path:
+       ```bash
+       /usr/local/bin/replay-sorcery save
+       ```
+    
+    5. Check window manager logs for errors
+  </Accordion>
+
+  <Accordion title="Invalid Key Name">
+    If you get errors about invalid key names:
+    
+    1. X11 key names are case-sensitive
+    2. Function keys: `F1`, `F2`, ..., `F12`
+    3. Special keys: `space`, `Return`, `Tab`, `Escape`
+    4. Alphanumeric: lowercase letters (`a`, `b`, `c`)
+    
+    Check X11 keysym documentation for valid key names.
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+<Warning>
+The X11 keyboard listener can capture keystrokes globally. ReplaySorcery only listens for your configured shortcut and doesn't log or store any other keystrokes.
+</Warning>
+
+For enhanced security on systems where this is a concern:
+
+1. Use the `command` backend instead of `x11`
+2. Configure the shortcut through your window manager
+3. This gives you full control over when the save command is triggered
+
+## Advanced Usage
+
+### Custom Trigger Scripts
+
+With the `command` backend, you can create custom trigger scripts:
+
+```bash
+#!/bin/bash
+# Save and upload to a server
+replay-sorcery save
+latest_video=$(ls -t ~/Videos/ReplaySorcery/*.mp4 | head -n1)
+scp "$latest_video" user@server:/path/to/videos/
+```
+
+Bind this script to your keyboard shortcut instead.
+
+### Multiple Shortcuts
+
+You can set up multiple shortcuts with different behaviors:
+
+```bash
+# Quick save
+Super+R: replay-sorcery save
+
+# Save and edit
+Super+Shift+R: replay-sorcery save && kdenlive "$(ls -t ~/Videos/ReplaySorcery/*.mp4 | head -n1)"
+```
