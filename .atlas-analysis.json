@@ -1,0 +1,75 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "ReplaySorcery",
+  "projectDescription": "An open-source, instant-replay solution for Linux with hardware acceleration support",
+  "theme": "aspen",
+  "primaryColor": "#1b97d4",
+  "lightColor": "#42a7db",
+  "darkColor": null,
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Usage",
+        "pages": [
+          "usage/running",
+          "usage/commands",
+          "usage/systemd"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/overview",
+          "configuration/video",
+          "configuration/audio",
+          "configuration/controls",
+          "configuration/output"
+        ]
+      },
+      {
+        "group": "Advanced",
+        "pages": [
+          "advanced/hardware-acceleration",
+          "advanced/kms-service",
+          "advanced/wayland",
+          "advanced/encoders"
+        ]
+      },
+      {
+        "group": "Troubleshooting",
+        "pages": [
+          "troubleshooting/common-issues",
+          "troubleshooting/debugging"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Instant replay recording (save last 30 seconds on keypress)",
+    "Hardware-accelerated screen capture via KMS",
+    "Multiple video encoders (x264, x265, OpenH264, VA-API H.264/HEVC)",
+    "PulseAudio audio recording support",
+    "Low CPU usage with circular buffer",
+    "X11 and Wayland support",
+    "Systemd service integration",
+    "Configurable video/audio encoding parameters"
+  ],
+  "publicApiSurface": [
+    "replay-sorcery save",
+    "replay-sorcery kms-devices",
+    "replay-sorcery kms-service",
+    "systemctl --user enable replay-sorcery",
+    "systemctl enable replay-sorcery-kms",
+    "Configuration options: videoInput, videoEncoder, audioInput, controller",
+    "Configuration options: recordSeconds, videoFramerate, videoQuality",
+    "Configuration options: keyName, keyMods, outputFile, outputCommand"
+  ]
+}
